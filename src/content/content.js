@@ -90,8 +90,12 @@
   function sendForAnalysis() {
     if (!protectionEnabled) return; // GATE: respect toggle
     if (!checkContext()) return;
-    const text = scrapeAllText();
+
+    // Use only visible page text to reduce false positives from hidden
+    // templates/comments/script-adjacent content on complex sites (e.g. search UIs).
+    const text = scrapeVisibleText();
     if (text.length < 10) return;
+
     safeSendMessage({
       type: 'PROMPTARMOR_SCRAPE',
       text,
