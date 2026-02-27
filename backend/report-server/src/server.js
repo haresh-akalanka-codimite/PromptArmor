@@ -9,28 +9,12 @@ app.use(express.json({ limit: '10mb' }));
 const PORT = Number(process.env.PORT || 5000);
 const PROJECT_ID = process.env.GCP_PROJECT_ID || 'Extention';
 const CREDENTIALS = process.env.GOOGLE_APPLICATION_CREDENTIALS || './service-account.json';
-const SERVICE_ACCOUNT_JSON = process.env.GCP_SERVICE_ACCOUNT_JSON || '';
 const FIRESTORE_COLLECTION = process.env.FIRESTORE_COLLECTION || 'reports';
 
-function buildFirestoreConfig() {
-  if (SERVICE_ACCOUNT_JSON) {
-    try {
-      return {
-        projectId: PROJECT_ID,
-        credentials: JSON.parse(SERVICE_ACCOUNT_JSON)
-      };
-    } catch (err) {
-      throw new Error('Invalid GCP_SERVICE_ACCOUNT_JSON value');
-    }
-  }
-
-  return {
-    projectId: PROJECT_ID,
-    keyFilename: CREDENTIALS
-  };
-}
-
-const firestore = new Firestore(buildFirestoreConfig());
+const firestore = new Firestore({
+  projectId: PROJECT_ID,
+  keyFilename: CREDENTIALS
+});
 
 app.get('/healthz', (_req, res) => {
   res.json({ ok: true, projectId: PROJECT_ID, collection: FIRESTORE_COLLECTION, storage: 'firestore-only' });
