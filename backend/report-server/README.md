@@ -48,6 +48,7 @@ Use `.env` (see `.env.example`):
 - `GOOGLE_APPLICATION_CREDENTIALS=./service-account.json`
 - `GCP_PROJECT_ID=Extention`
 - `FIRESTORE_COLLECTION=reports`
+- `GEMINI_API_KEY=...` (required only for `/analyze`)
 
 
 ### Windows credential path
@@ -92,6 +93,28 @@ Expected minimum payload:
 `GET /report/:reportId`
 
 Returns document data from Firestore.
+
+
+### Analyze text with Gemini Flash
+`POST /analyze` (`application/json`)
+
+Body:
+
+```json
+{
+  "text": "Analyze this risky download URL: example.com/malware.exe"
+}
+```
+
+Response:
+
+```json
+{
+  "result": "VERDICT: NO\nREASON: ..."
+}
+```
+
+> Keep your `GEMINI_API_KEY` only in backend `.env` and never embed it in extension/client code.
 
 ## 5) Firestore structure
 
