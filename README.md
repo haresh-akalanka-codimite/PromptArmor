@@ -59,3 +59,35 @@ Behavior:
 - Medium risk: PromptArmor records a `risky_download_warn` threat.
 - Updates are emitted through runtime messages as `DOWNLOAD_RISK` verdicts.
 
+
+
+## Daily Encrypted Report Upload (GCP-ready)
+
+PromptArmor supports daily export of stored extension telemetry to your cloud endpoint.
+
+Configuration key in `chrome.storage.local`:
+
+```json
+{
+  "dailyReportConfig": {
+    "enabled": true,
+    "firestoreProjectId": "your-gcp-project-id",
+    "firestoreApiKey": "your-firestore-web-api-key",
+    "firestoreCollection": "promptarmorDailyReports",
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----...-----END PUBLIC KEY-----",
+    "tenantId": "your-tenant",
+    "includeAllStorage": true
+  }
+}
+```
+
+Behavior:
+- Collects stored data daily via Chrome alarms.
+- Encrypts report with AES-256-GCM.
+- Wraps AES key with RSA-OAEP(SHA-256) using your public key.
+- Uploads encrypted payload directly to Firestore collection documents so only your dashboard backend can decrypt with private key.
+
+
+## Report backend (Firestore + GCS)
+
+A separate production-style Node/Express backend is available at `backend/report-server` for file uploads, Firestore metadata, and signed URL retrieval. See `backend/report-server/README.md`.

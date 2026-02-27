@@ -1,0 +1,6 @@
+node_modules/
+uploads/*
+!uploads/.gitkeep
+service-account.json
+.env
+npm-debug.log*
