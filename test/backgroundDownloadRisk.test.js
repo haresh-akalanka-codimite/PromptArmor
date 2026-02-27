@@ -89,6 +89,19 @@ describe('background download risk assessment', () => {
     expect(result.reasons).toContain('risky-extension:.exe');
   });
 
+  it('warns when filename has no extension but URL ends with .exe', () => {
+    const ctx = loadBackgroundContext();
+    const result = ctx.assessDownloadRisk({
+      filename: 'payload',
+      mime: 'application/octet-stream',
+      danger: 'safe',
+      finalUrl: 'https://example.com/download/payload.exe?token=abc'
+    });
+
+    expect(result.action).toBe('warn');
+    expect(result.reasons).toContain('risky-extension:.exe');
+  });
+
   it('allows low-risk downloads', () => {
     const ctx = loadBackgroundContext();
     const result = ctx.assessDownloadRisk({
