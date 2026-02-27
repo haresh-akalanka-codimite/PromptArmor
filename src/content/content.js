@@ -278,10 +278,10 @@
       re: /(?:mongodb|postgresql|mysql|redis):\/\/[^\s'"]+/ }
   ];
 
-  // Sensitive keyword matcher — no word boundaries (underscores count as \w).
-  const ENV_SENSITIVE_KEYS = /(SECRET|PASSWORD|TOKEN|PASS|PRIVATE|CREDENTIAL|DATABASE|APIKEY|AUTH|OAUTH|STRIPE|TWILIO|SENDGRID|FIREBASE|SUPABASE|ENCRYPTION|SIGNING)/i;
-  // Matches both UPPER_CASE=value and lower_case=value .env lines
-  const ENV_LINE_RE = /^[A-Za-z_][A-Za-z0-9_]*\s*=\s*.+$/gm;
+  // No \b word boundaries — underscores are \w so \bPRIVATE\b would NOT match
+  // GOOGLE_PRIVATE_KEY. Substring match instead.
+  const ENV_SENSITIVE_KEYS = /(SECRET|PASSWORD|TOKEN|PASS|PRIVATE|CREDENTIAL|DATABASE|APIKEY|AUTH|OAUTH|STRIPE|TWILIO|SENDGRID|FIREBASE|SUPABASE)/i;
+  const ENV_LINE_RE = /^(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*.*$/gm;
 
   function detectSecretsInPaste(text) {
     if (!text || text.length < 8) return [];
@@ -295,6 +295,25 @@
       if (!found.includes('.env / Config File')) found.push('.env / Config File');
     }
     return found;
+  }
+
+
+  function redactEnvLine(line, forceRedact = false) {
+    const m = line.match(/^(\s*(?:export\s+)?)([A-Za-z_][A-Za-z0-9_]*)(\s*=\s*)([\s\S]*)$/);
+    if (!m) return line;
+    const [, prefix, key, sep, valueRaw] = m;
+    const value = String(valueRaw || '').trim();
+
+    const valueLooksSensitive =
+      value.length >= 20 ||
+      /(?:BEGIN\s+PRIVATE\s+KEY|Bearer\s+[A-Za-z0-9_\-]+|eyJ[A-Za-z0-9_\-]+\.)/i.test(value) ||
+      /(?:mongodb|postgresql|mysql|redis):\/\//i.test(value);
+
+    if (forceRedact || ENV_SENSITIVE_KEYS.test(key) || valueLooksSensitive) {
+      return `${prefix}${key}${sep}[REDACTED]`;
+    }
+
+    return line;
   }
 
   // Redact secrets while keeping non-sensitive content intact.
@@ -336,14 +355,12 @@
       '$1[REDACTED]$2'
     );
 
-    // .env lines — both UPPER_CASE and lower_case key names
-    // For each KEY=value or KEY="value" line, redact value when key contains a sensitive keyword
-    r = r.replace(/^([A-Za-z_][A-Za-z0-9_]*\s*=\s*)(.+)$/gm, (match, keyPart, value) => {
-      const keyName = keyPart.split('=')[0].trim();
-      if (!ENV_SENSITIVE_KEYS.test(keyName)) return match;
-      // Strip optional surrounding quotes from value before redacting
-      return keyPart + '[REDACTED]';
-    });
+    const envLines = r.match(ENV_LINE_RE) || [];
+    const shouldForceEnvRedact = envLines.length >= 3;
+
+    // .env handling: if it looks like an env file, redact ALL values.
+    // Otherwise, redact sensitive keys and suspiciously token-like values.
+    r = r.replace(ENV_LINE_RE, line => redactEnvLine(line, shouldForceEnvRedact));
 
     return r;
   }

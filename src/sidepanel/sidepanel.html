@@ -17,7 +17,7 @@
 
     /* ── Header ── */
     .header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0}
-    .header-logo{font-size:1.3rem}
+    .header-logo{width:130px;height:30px;object-fit:contain;display:block}
     .header-title{font-size:1rem;font-weight:700;letter-spacing:.5px}
     .header-badge{margin-left:auto;font-size:.65rem;padding:2px 8px;border-radius:10px;background:rgba(59,130,246,.2);color:var(--blue);border:1px solid rgba(59,130,246,.3)}
 
@@ -160,7 +160,7 @@
 </head>
 <body>
 <div class="header">
-  <span class="header-logo">🛡️</span>
+  <img class="header-logo" src="../assets/flux-logo.svg" alt="Flux shield logo"/>
   <span class="header-title">PromptArmor</span>
   <span class="header-badge" id="headerVersion">v2.0</span>
 </div>

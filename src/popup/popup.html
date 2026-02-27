@@ -43,17 +43,12 @@
       align-items: center;
       gap: 10px;
     }
-
-    .header-logo {
-      font-size: 1.5rem;
-      line-height: 1;
-    }
-
-    .header-title {
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: #111827;
-      flex: 1;
+    
+    .logo {
+      width: 118px;
+      height: 28px;
+      object-fit: contain;
+      display: block;
     }
 
     /* ── Tab Bar ─────────────────────────────────────────────── */
@@ -720,17 +715,38 @@
   </style>
 </head>
 <body>
-
-  <!-- Hidden legacy elements – JS sets these but they aren't shown in the new UI -->
-  <span id="statusIndicator" class="status-indicator" aria-hidden="true"></span>
-  <span id="scoreBadge" class="score-badge unknown" aria-hidden="true"></span>
-
-  <div class="frame">
-
-    <!-- ── Header ──────────────────────────────────────────── -->
-    <div class="header">
-      <span class="header-logo">🛡️</span>
-      <span class="header-title">PromptArmor</span>
+  <div class="header">
+    <img class="logo" src="../assets/flux-logo.svg" alt="Flux shield logo" />
+    <span class="title">PromptArmor</span>
+  </div>
+  
+  <div class="status">
+    <div class="status-label">
+      <span class="status-indicator" id="statusIndicator"></span>
+      <span>Protection</span>
+    </div>
+    <div class="toggle on" id="toggle"></div>
+  </div>
+  
+  <div class="quick-score">
+    <div class="score-badge unknown" id="scoreBadge">
+      <span>Analyzing...</span>
+    </div>
+  </div>
+  
+  <div class="actions">
+    <button class="btn btn-panel" id="openPanelBtn">Open Side Panel</button>
+    <button class="btn btn-rescan" id="rescanBtn">Rescan Current Page</button>
+  </div>
+  
+  <!-- Visit History -->
+  <div class="history">
+    <div class="history-header">
+      <span class="history-title">Visit History</span>
+      <button class="history-clear" id="clearHistoryBtn">Clear</button>
+    </div>
+    <div class="history-list" id="historyList">
+      <div class="history-empty">No visits recorded yet</div>
     </div>
 
     <!-- ── Tab Bar ─────────────────────────────────────────── -->

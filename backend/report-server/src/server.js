@@ -9,12 +9,28 @@ app.use(express.json({ limit: '10mb' }));
 const PORT = Number(process.env.PORT || 5000);
 const PROJECT_ID = process.env.GCP_PROJECT_ID || 'Extention';
 const CREDENTIALS = process.env.GOOGLE_APPLICATION_CREDENTIALS || './service-account.json';
+const SERVICE_ACCOUNT_JSON = process.env.GCP_SERVICE_ACCOUNT_JSON || '';
 const FIRESTORE_COLLECTION = process.env.FIRESTORE_COLLECTION || 'reports';
 
-const firestore = new Firestore({
-  projectId: PROJECT_ID,
-  keyFilename: CREDENTIALS
-});
+function buildFirestoreConfig() {
+  if (SERVICE_ACCOUNT_JSON) {
+    try {
+      return {
+        projectId: PROJECT_ID,
+        credentials: JSON.parse(SERVICE_ACCOUNT_JSON)
+      };
+    } catch (err) {
+      throw new Error('Invalid GCP_SERVICE_ACCOUNT_JSON value');
+    }
+  }
+
+  return {
+    projectId: PROJECT_ID,
+    keyFilename: CREDENTIALS
+  };
+}
+
+const firestore = new Firestore(buildFirestoreConfig());
 
 app.get('/healthz', (_req, res) => {
   res.json({ ok: true, projectId: PROJECT_ID, collection: FIRESTORE_COLLECTION, storage: 'firestore-only' });
@@ -60,8 +76,12 @@ app.post('/ingest-encrypted-report', async (req, res) => {
 // Fetch stored encrypted report document by id.
 app.get('/report/:reportId', async (req, res) => {
   try {
-    const doc = await firestore.collection(FIRESTORE_COLLECTION).doc(req.params.reportId).get();
-    if (!doc.exists) return res.status(404).json({ error: 'Report not found' });
+    const reportId = req.params.reportId;
+    const doc = await firestore.collection(FIRESTORE_COLLECTION).doc(reportId).get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
 
     return res.json({ reportId: doc.id, ...doc.data() });
   } catch (err) {
@@ -70,16 +90,11 @@ app.get('/report/:reportId', async (req, res) => {
   }
 });
 
-// ── Global error handler ──────────────────────────────────────────────────────
 app.use((err, _req, res, _next) => {
   console.error(err);
   return res.status(500).json({ error: 'Unexpected server error' });
 });
 
 app.listen(PORT, () => {
-  console.log(`PromptArmor report server  →  http://localhost:${PORT}`);
-  console.log(`  project  : ${PROJECT_ID}`);
-  console.log(`  bucket   : ${BUCKET_NAME}`);
-  console.log(`  collection: ${FIRESTORE_COLLECTION}`);
-  console.log(`  api-key  : ${EXTENSION_API_KEY ? '*** set ***' : 'NOT SET (open mode)'}`);
+  console.log(`Report server running on port ${PORT}`);
 });

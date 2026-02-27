@@ -49,6 +49,22 @@ Use `.env` (see `.env.example`):
 - `GCP_PROJECT_ID=Extention`
 - `FIRESTORE_COLLECTION=reports`
 
+
+### Windows credential path
+
+If your key is at:
+
+`C:\test\PromptArmor\backend\report-server\service-account.json`
+
+set in `.env`:
+
+```env
+GOOGLE_APPLICATION_CREDENTIALS=C:\test\PromptArmor\backend\report-server\service-account.json
+```
+
+You can also avoid file-path issues by using `GCP_SERVICE_ACCOUNT_JSON` (raw JSON string) instead of `GOOGLE_APPLICATION_CREDENTIALS`.
+
+
 ## 4) API endpoints
 
 ### Health

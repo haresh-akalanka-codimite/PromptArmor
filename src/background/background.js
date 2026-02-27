@@ -42,12 +42,13 @@ async function loadDailyReportConfig() {
   const result = await chrome.storage.local.get(['dailyReportConfig']);
   const cfg = result.dailyReportConfig || {};
   return {
-    enabled:           cfg.enabled           === true,
-    backendUrl:        cfg.backendUrl         || 'http://localhost:5000',
-    extensionApiKey:   cfg.extensionApiKey    || '',
-    publicKeyPem:      cfg.publicKeyPem       || '',
-    tenantId:          cfg.tenantId           || '',
-    includeAllStorage: cfg.includeAllStorage  !== false
+    enabled: cfg.enabled === true,
+    firestoreProjectId: cfg.firestoreProjectId || '',
+    firestoreApiKey: cfg.firestoreApiKey || '',
+    firestoreCollection: cfg.firestoreCollection || 'promptarmorDailyReports',
+    publicKeyPem: cfg.publicKeyPem || '',
+    tenantId: cfg.tenantId || '',
+    includeAllStorage: cfg.includeAllStorage !== false
   };
 }
 
@@ -121,72 +122,61 @@ async function encryptDailyReportPayload(payload, publicKeyPem) {
 }
 
 async function uploadDailyEncryptedReportToFirestore(encryptedPayload, reportFile, config) {
-  // Gather unencrypted metadata for Firestore indexing (no secrets here)
-  const stored = await chrome.storage.local.get(['reportUserEmail', 'currentDeviceHash', 'securityEvents']);
-  const userEmail  = stored.reportUserEmail  || 'anonymous';
-  const deviceHash = stored.currentDeviceHash || 'unknown';
-  const eventCount = (stored.securityEvents || []).length;
-
-  const body = {
-    tenantId:    config.tenantId   || '',
-    extensionId: chrome.runtime.id || '',
-    userEmail,
-    deviceHash,
-    reportedAt:  new Date().toISOString(),
-    eventCount,
-    fileName:    reportFile.fileName,
-    encryptedPayload: {
-      algorithm:  encryptedPayload.algorithm,
-      iv:         encryptedPayload.iv,
-      wrappedKey: encryptedPayload.wrappedKey,
-      ciphertext: encryptedPayload.ciphertext
+  const doc = {
+    fields: {
+      tenantId: { stringValue: config.tenantId || '' },
+      reportVersion: { integerValue: '1' },
+      sentAt: { timestampValue: new Date().toISOString() },
+      extensionId: { stringValue: chrome.runtime.id || '' },
+      fileName: { stringValue: reportFile.fileName },
+      contentType: { stringValue: reportFile.contentType },
+      encryptedAlgorithm: { stringValue: encryptedPayload.algorithm },
+      encryptedPayload: {
+        mapValue: {
+          fields: {
+            iv: { stringValue: encryptedPayload.iv },
+            wrappedKey: { stringValue: encryptedPayload.wrappedKey },
+            ciphertext: { stringValue: encryptedPayload.ciphertext }
+          }
+        }
+      }
     }
-    // extensionApiKey is sent via header, NOT in body, to avoid it appearing in GCS
   };
 
-  const endpoint = `${config.backendUrl.replace(/\/$/, '')}/ingest-encrypted-report`;
+  const endpoint = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(config.firestoreProjectId)}/databases/(default)/documents/${encodeURIComponent(config.firestoreCollection)}?key=${encodeURIComponent(config.firestoreApiKey)}`;
 
   const response = await fetch(endpoint, {
-    method:  'POST',
-    headers: {
-      'Content-Type':        'application/json',
-      'X-Extension-Api-Key': config.extensionApiKey || ''
-    },
-    body: JSON.stringify(body)
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(doc)
   });
 
   if (!response.ok) {
-    const text = await response.text().catch(() => response.status.toString());
-    throw new Error(`Report upload failed (${response.status}): ${text}`);
+    throw new Error(`Daily report Firestore upload failed: ${response.status}`);
   }
-
-  return await response.json();   // { reportId, fileName, message }
 }
 
 async function runDailyReportPipeline(trigger = 'alarm') {
   const config = await loadDailyReportConfig();
-  if (!config.enabled)       return { skipped: true, reason: 'disabled' };
-  if (!config.backendUrl)    return { skipped: true, reason: 'missing-backend-url' };
-  if (!config.publicKeyPem)  return { skipped: true, reason: 'missing-public-key' };
+  if (!config.enabled) return { skipped: true, reason: 'disabled' };
+  if (!config.firestoreProjectId) return { skipped: true, reason: 'missing-firestore-project-id' };
+  if (!config.firestoreApiKey) return { skipped: true, reason: 'missing-firestore-api-key' };
+  if (!config.publicKeyPem) return { skipped: true, reason: 'missing-public-key' };
 
   const storageData = config.includeAllStorage
     ? await chrome.storage.local.get(null)
-    : await chrome.storage.local.get([
-        'firewallStats', 'visitHistory', 'registeredDevices',
-        'settings', 'securityEvents', 'currentDeviceHash', 'reportUserEmail'
-      ]);
+    : await chrome.storage.local.get(['firewallStats', 'visitHistory', 'registeredDevices', 'settings']);
 
-  const payload    = buildDailyReportPayload(storageData, trigger);
+  const payload = buildDailyReportPayload(storageData, trigger);
   const reportFile = buildDailyReportJsonFile(payload);
-  const encrypted  = await encryptDailyReportPayload(reportFile, config.publicKeyPem);
-  const result     = await uploadDailyEncryptedReportToFirestore(encrypted, reportFile, config);
+  const encrypted = await encryptDailyReportPayload(reportFile, config.publicKeyPem);
+  await uploadDailyEncryptedReportToFirestore(encrypted, reportFile, config);
 
   return {
-    skipped:  false,
+    skipped: false,
     uploaded: true,
-    reportId: result?.reportId || '',
-    keys:     Object.keys(storageData).length,
-    fileName: result?.fileName || reportFile.fileName,
+    keys: Object.keys(storageData).length,
+    fileName: reportFile.fileName,
     fileSize: reportFile.contentSize
   };
 }
@@ -626,18 +616,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     chrome.runtime.sendMessage({
       type: 'PROMPTARMOR_UPDATE',
       data: { verdict: 'PASTE_WARN', origin, detections }
-    }).catch(() => {});
-    return false;
-  }
-
-  // User clicked Dismiss or Trust This Site on the blocking overlay
-  if (message.type === 'PROMPTARMOR_USER_ACTION') {
-    recordSecurityEvent({
-      type:    'user_action',
-      url:     message.url    || '',
-      origin:  message.origin || '',
-      action:  message.action,   // 'dismiss' | 'trust'
-      context: message.context   // 'injection'
     }).catch(() => {});
     return false;
   }
