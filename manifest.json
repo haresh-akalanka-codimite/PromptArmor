@@ -19,7 +19,8 @@
   "host_permissions": [
     "http://localhost:5000/*",
     "http://localhost:11434/*",
-    "https://firestore.googleapis.com/*"
+    "https://firestore.googleapis.com/*",
+    "https://generativelanguage.googleapis.com/*"
   ],
   "background": {
     "service_worker": "src/background/background.js"
