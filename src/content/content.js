@@ -91,9 +91,9 @@
     if (!protectionEnabled) return; // GATE: respect toggle
     if (!checkContext()) return;
 
-    // Use only visible page text to reduce false positives from hidden
-    // templates/comments/script-adjacent content on complex sites (e.g. search UIs).
-    const text = scrapeVisibleText();
+    // Use full DOM text (including hidden/comments) so Gemini/API analysis can
+    // catch indirect/hidden prompt injections that are not visibly rendered.
+    const text = scrapeAllText();
     if (text.length < 10) return;
 
     safeSendMessage({
