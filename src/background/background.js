@@ -263,8 +263,18 @@ function getFileExtension(filename = '') {
   return dotIndex > -1 ? normalized.slice(dotIndex) : '';
 }
 
+function getExtensionFromUrl(url = '') {
+  try {
+    const parsed = new URL(url);
+    return getFileExtension(parsed.pathname || '');
+  } catch (_) {
+    return getFileExtension(url);
+  }
+}
+
 function assessDownloadRisk(downloadItem) {
-  const extension = getFileExtension(downloadItem.filename || '');
+  const extension = getFileExtension(downloadItem.filename || '') ||
+    getExtensionFromUrl(downloadItem.finalUrl || downloadItem.url || '');
   const mime = (downloadItem.mime || '').toLowerCase();
   const danger = (downloadItem.danger || 'safe').toLowerCase();
   const finalUrl = (downloadItem.finalUrl || downloadItem.url || '').toLowerCase();
