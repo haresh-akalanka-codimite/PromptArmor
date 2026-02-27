@@ -11,7 +11,8 @@
     "declarativeNetRequest",
     "sidePanel",
     "management",
-    "downloads"
+    "downloads",
+    "alarms"
   ],
   "host_permissions": [
   "http://localhost:11434/*"

@@ -16,6 +16,184 @@ Answer ONLY with YES (if suspicious) or NO (if safe).
 
 const trustData = new Map();
 
+
+const DAILY_REPORT_ALARM = 'promptarmor_daily_report';
+const DAILY_REPORT_PERIOD_MINUTES = 24 * 60;
+
+function toBase64(bytes) {
+  const arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  let binary = '';
+  for (let i = 0; i < arr.length; i++) binary += String.fromCharCode(arr[i]);
+  return btoa(binary);
+}
+
+function fromPemToArrayBuffer(pem) {
+  const body = String(pem || '')
+    .replace('-----BEGIN PUBLIC KEY-----', '')
+    .replace('-----END PUBLIC KEY-----', '')
+    .replace(/\s+/g, '');
+  const binary = atob(body);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
+async function loadDailyReportConfig() {
+  const result = await chrome.storage.local.get(['dailyReportConfig']);
+  const cfg = result.dailyReportConfig || {};
+  return {
+    enabled: cfg.enabled === true,
+    firestoreProjectId: cfg.firestoreProjectId || '',
+    firestoreApiKey: cfg.firestoreApiKey || '',
+    firestoreCollection: cfg.firestoreCollection || 'promptarmorDailyReports',
+    publicKeyPem: cfg.publicKeyPem || '',
+    tenantId: cfg.tenantId || '',
+    includeAllStorage: cfg.includeAllStorage !== false
+  };
+}
+
+function buildDailyReportPayload(storageData, trigger) {
+  const manifest = chrome.runtime.getManifest?.() || {};
+  return {
+    reportType: 'promptarmor.daily.full',
+    createdAt: new Date().toISOString(),
+    trigger: trigger || 'manual',
+    extension: {
+      id: chrome.runtime.id,
+      version: manifest.version || 'unknown',
+      name: manifest.name || 'PromptArmor'
+    },
+    storageData
+  };
+}
+
+
+function buildDailyReportJsonFile(payload) {
+  const iso = payload.createdAt || new Date().toISOString();
+  const compactDate = iso.slice(0, 10).replace(/-/g, '');
+  const fileName = `promptarmor-report-${compactDate}.json`;
+  const fileContent = JSON.stringify(payload, null, 2);
+  return {
+    fileName,
+    contentType: 'application/json',
+    content: fileContent,
+    contentSize: fileContent.length
+  };
+}
+
+async function encryptDailyReportPayload(payload, publicKeyPem) {
+  const encoder = new TextEncoder();
+  const plaintext = encoder.encode(JSON.stringify(payload));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+
+  const aesKey = await crypto.subtle.generateKey(
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt']
+  );
+
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    aesKey,
+    plaintext
+  );
+
+  const publicKey = await crypto.subtle.importKey(
+    'spki',
+    fromPemToArrayBuffer(publicKeyPem),
+    { name: 'RSA-OAEP', hash: 'SHA-256' },
+    false,
+    ['wrapKey']
+  );
+
+  const wrappedKey = await crypto.subtle.wrapKey(
+    'raw',
+    aesKey,
+    publicKey,
+    { name: 'RSA-OAEP' }
+  );
+
+  return {
+    algorithm: 'RSA-OAEP-256/AES-256-GCM',
+    iv: toBase64(iv),
+    wrappedKey: toBase64(wrappedKey),
+    ciphertext: toBase64(ciphertext)
+  };
+}
+
+async function uploadDailyEncryptedReportToFirestore(encryptedPayload, reportFile, config) {
+  const doc = {
+    fields: {
+      tenantId: { stringValue: config.tenantId || '' },
+      reportVersion: { integerValue: '1' },
+      sentAt: { timestampValue: new Date().toISOString() },
+      extensionId: { stringValue: chrome.runtime.id || '' },
+      fileName: { stringValue: reportFile.fileName },
+      contentType: { stringValue: reportFile.contentType },
+      encryptedAlgorithm: { stringValue: encryptedPayload.algorithm },
+      encryptedPayload: {
+        mapValue: {
+          fields: {
+            iv: { stringValue: encryptedPayload.iv },
+            wrappedKey: { stringValue: encryptedPayload.wrappedKey },
+            ciphertext: { stringValue: encryptedPayload.ciphertext }
+          }
+        }
+      }
+    }
+  };
+
+  const endpoint = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(config.firestoreProjectId)}/databases/(default)/documents/${encodeURIComponent(config.firestoreCollection)}?key=${encodeURIComponent(config.firestoreApiKey)}`;
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(doc)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Daily report Firestore upload failed: ${response.status}`);
+  }
+}
+
+async function runDailyReportPipeline(trigger = 'alarm') {
+  const config = await loadDailyReportConfig();
+  if (!config.enabled) return { skipped: true, reason: 'disabled' };
+  if (!config.firestoreProjectId) return { skipped: true, reason: 'missing-firestore-project-id' };
+  if (!config.firestoreApiKey) return { skipped: true, reason: 'missing-firestore-api-key' };
+  if (!config.publicKeyPem) return { skipped: true, reason: 'missing-public-key' };
+
+  const storageData = config.includeAllStorage
+    ? await chrome.storage.local.get(null)
+    : await chrome.storage.local.get(['firewallStats', 'visitHistory', 'registeredDevices', 'settings']);
+
+  const payload = buildDailyReportPayload(storageData, trigger);
+  const reportFile = buildDailyReportJsonFile(payload);
+  const encrypted = await encryptDailyReportPayload(reportFile, config.publicKeyPem);
+  await uploadDailyEncryptedReportToFirestore(encrypted, reportFile, config);
+
+  return {
+    skipped: false,
+    uploaded: true,
+    keys: Object.keys(storageData).length,
+    fileName: reportFile.fileName,
+    fileSize: reportFile.contentSize
+  };
+}
+
+async function ensureDailyReportAlarm() {
+  const config = await loadDailyReportConfig();
+  if (!config.enabled) {
+    await chrome.alarms.clear(DAILY_REPORT_ALARM).catch(() => {});
+    return;
+  }
+
+  await chrome.alarms.create(DAILY_REPORT_ALARM, {
+    delayInMinutes: 1,
+    periodInMinutes: DAILY_REPORT_PERIOD_MINUTES
+  });
+}
+
 const DOWNLOAD_RISK_CONFIG = {
   riskyExtensions: [
     '.exe', '.msi', '.bat', '.cmd', '.ps1', '.scr', '.jar', '.vbs', '.js',
@@ -384,7 +562,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
+  if (message.type === 'PROMPTARMOR_RUN_DAILY_REPORT') {
+    runDailyReportPipeline('manual')
+      .then(result => sendResponse({ ok: true, result }))
+      .catch(err => sendResponse({ ok: false, error: err.message }));
+    return true;
+  }
+
+  if (message.type === 'PROMPTARMOR_SET_DAILY_REPORT_CONFIG') {
+    chrome.storage.local.set({ dailyReportConfig: message.config || {} })
+      .then(() => ensureDailyReportAlarm())
+      .then(() => sendResponse({ ok: true }))
+      .catch(err => sendResponse({ ok: false, error: err.message }));
+    return true;
+  }
+
   return false;
+
 });
 
 // ── Device Fingerprinting ──────────────────────────────────────────────────
@@ -505,6 +699,22 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.set({
     settings: { enabled: true, autoBlock: true, showNotifications: true }
   });
+});
+
+ensureDailyReportAlarm().catch(() => {});
+
+
+chrome.alarms.onAlarm.addListener(alarm => {
+  if (alarm?.name !== DAILY_REPORT_ALARM) return;
+  runDailyReportPipeline('alarm').catch(err =>
+    console.error('PromptArmor daily report pipeline error:', err)
+  );
+});
+
+chrome.runtime.onStartup?.addListener(() => {
+  ensureDailyReportAlarm().catch(err =>
+    console.error('PromptArmor daily report alarm setup error:', err)
+  );
 });
 
 console.log('PromptArmor background service worker started');
