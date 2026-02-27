@@ -17,6 +17,7 @@
     "identity.email"
   ],
   "host_permissions": [
+    "http://localhost:5000/*",
     "http://localhost:11434/*",
     "https://firestore.googleapis.com/*"
   ],
@@ -34,8 +35,24 @@
     "default_path": "src/sidepanel/sidepanel.html"
   },
   "action": {
-    "default_popup": "src/popup/popup.html"
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16":  "src/assets/icon16.png",
+      "48":  "src/assets/icon48.png",
+      "128": "src/assets/icon128.png"
+    }
   },
+  "icons": {
+    "16":  "src/assets/icon16.png",
+    "48":  "src/assets/icon48.png",
+    "128": "src/assets/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["src/assets/*"],
+      "matches":   ["<all_urls>"]
+    }
+  ],
   "declarative_net_request": {
     "rule_resources": [
       {

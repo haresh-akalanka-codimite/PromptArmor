@@ -3,68 +3,95 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PromptArmor</title>
+  <title>FLUX · PromptArmor</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     /* ═══════════════════════════════════════════════════════════
-       PromptArmor Popup – Light Theme  (Figma Redesign)
+       FLUX PromptArmor Popup – Figma Light Theme
        ═══════════════════════════════════════════════════════════ */
 
-    *, *::before, *::after {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont,
-                   'Segoe UI', Roboto, sans-serif;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
       background: #FFFFFF;
       color: #111827;
-      width: 648px;
+      width: 400px;
       overflow-x: hidden;
     }
 
-    /* ── Frame ─────────────────────────────────────────────── */
+    /* ── Outer frame ───────────────────────────────────────── */
     .frame {
-      width: 648px;
+      width: 400px;
       background: #FFFFFF;
-      padding: 20px;
+      padding: 18px 18px 20px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 14px;
     }
 
-    /* ── Header ─────────────────────────────────────────────── */
+    /* ── Header ────────────────────────────────────────────── */
     .header {
       display: flex;
       align-items: center;
-      gap: 10px;
-    }
-    
-    .logo {
-      width: 118px;
-      height: 28px;
-      object-fit: contain;
-      display: block;
+      justify-content: space-between;
     }
 
-    /* ── Tab Bar ─────────────────────────────────────────────── */
+    .logo-img {
+      height: 32px;
+      width: auto;
+      display: block;
+      object-fit: contain;
+    }
+
+    /* SVG fallback when PNG missing */
+    .logo-fallback {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .logo-fallback-text {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #5B21B6;
+    }
+    .logo-fallback-icon { font-size: 1.25rem; }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 1.25rem;
+      color: #9CA3AF;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 6px;
+      line-height: 1;
+      font-family: inherit;
+      transition: color 0.15s, background 0.15s;
+    }
+    .close-btn:hover { color: #374151; background: #F3F4F6; }
+
+    /* ── Tab Bar ────────────────────────────────────────────── */
     .tab-bar {
       display: flex;
       background: #F3F4F6;
-      border-radius: 8px;
+      border-radius: 10px;
       padding: 4px;
       gap: 4px;
     }
 
     .tab {
       flex: 1;
-      padding: 9px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 9px 14px;
       border: none;
-      border-radius: 6px;
+      border-radius: 7px;
       font-size: 0.875rem;
       font-weight: 500;
       cursor: pointer;
@@ -72,43 +99,34 @@
       background: transparent;
       color: #6B7280;
       font-family: inherit;
+      white-space: nowrap;
     }
 
     .tab.active {
       background: #9C27B0;
       color: #FFFFFF;
       font-weight: 600;
-      box-shadow: 0 1px 3px rgba(156,39,176,0.35);
+      box-shadow: 0 1px 4px rgba(124,39,176,0.30);
     }
 
-    .tab:not(.active):hover {
-      background: #E9D5FF;
-      color: #7B1FA2;
-    }
+    .tab:not(.active):hover { background: #E9D5FF; color: #7B1FA2; }
+
+    .tab-icon { width: 16px; height: 16px; flex-shrink: 0; }
 
     /* ── Panels ─────────────────────────────────────────────── */
-    .panel {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
+    .panel { display: flex; flex-direction: column; gap: 12px; }
+    .panel.hidden { display: none; }
 
-    .panel.hidden {
-      display: none;
-    }
-
-    /* ── Cards ─────────────────────────────────────────────── */
+    /* ── Cards ──────────────────────────────────────────────── */
     .card {
       background: #FFFFFF;
       border: 1px solid #E5E7EB;
-      border-radius: 12px;
-      box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.08);
+      border-radius: 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
       overflow: hidden;
     }
 
-    .card-body {
-      padding: 16px;
-    }
+    .card-body { padding: 16px 18px; }
 
     .card-body.row-between {
       display: flex;
@@ -117,13 +135,10 @@
       gap: 16px;
     }
 
-    .card-text {
-      flex: 1;
-      min-width: 0;
-    }
+    .card-text { flex: 1; min-width: 0; }
 
     .card-title {
-      font-size: 1rem;
+      font-size: 0.9375rem;
       font-weight: 600;
       color: #111827;
       margin-bottom: 4px;
@@ -135,27 +150,16 @@
       line-height: 1.45;
     }
 
-    .card-desc.mono {
-      font-family: monospace;
-      font-size: 0.75rem;
-    }
+    .card-desc.mono { font-family: monospace; font-size: 0.75rem; }
 
-    /* ── Section Header (title + action inside card) ─────────── */
-    .section-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 10px;
-    }
-
-    /* ── Security Score Card ─────────────────────────────────── */
+    /* ── Security Score Box ──────────────────────────────────── */
     .score-box {
       flex-shrink: 0;
-      background: #E9F3FF;
-      border-radius: 10px;
-      padding: 12px 18px;
+      background: #EFF6FF;
+      border-radius: 12px;
+      padding: 12px 16px;
       text-align: center;
-      min-width: 110px;
+      min-width: 108px;
     }
 
     .score-number-wrap {
@@ -166,7 +170,7 @@
     }
 
     .score-number {
-      font-size: 2rem;
+      font-size: 1.875rem;
       font-weight: 700;
       color: #1D4ED8;
       line-height: 1;
@@ -178,586 +182,313 @@
       color: #3B82F6;
     }
 
-    .score-status {
+    .cep-score-status {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 4px;
-      margin-top: 5px;
-      font-size: 0.75rem;
-      color: #6B7280;
+      margin-top: 6px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: #92400E;
+      white-space: nowrap;
     }
 
-    /* ── Protection Toggle ─────────────────────────────────── */
-    .toggle-wrap {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    .cep-score-status.cep-active  { color: #15803D; }
+    .cep-score-status.cep-warning { color: #92400E; }
+
+    /* ── CEP Usage status badge ──────────────────────────────── */
+    .cep-usage-status {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: #9CA3AF;
+      white-space: nowrap;
       flex-shrink: 0;
     }
+
+    .cep-usage-status.cep-active-text  { color: #15803D; }
+    .cep-usage-status.cep-inactive-text { color: #9CA3AF; }
+
+    /* ── Protection Toggle ───────────────────────────────────── */
+    .toggle-wrap { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
     .toggle {
-      position: relative;
-      width: 48px;
-      height: 26px;
-      background: #D1D5DB;
-      border-radius: 13px;
-      cursor: pointer;
-      transition: background 0.3s;
-      flex-shrink: 0;
+      position: relative; width: 44px; height: 24px;
+      background: #D1D5DB; border-radius: 12px;
+      cursor: pointer; transition: background 0.3s; flex-shrink: 0;
     }
-
-    .toggle.on {
-      background: #22c55e;
-    }
-
+    .toggle.on { background: #22c55e; }
     .toggle::after {
-      content: '';
-      position: absolute;
-      top: 3px;
-      left: 3px;
-      width: 20px;
-      height: 20px;
-      background: white;
-      border-radius: 50%;
+      content: ''; position: absolute;
+      top: 2px; left: 2px; width: 20px; height: 20px;
+      background: white; border-radius: 50%;
       transition: transform 0.3s;
       box-shadow: 0 1px 3px rgba(0,0,0,0.2);
     }
+    .toggle.on::after { transform: translateX(20px); }
 
-    .toggle.on::after {
-      transform: translateX(22px);
-    }
+    .toggle-label { font-size: 0.875rem; font-weight: 500; color: #374151; min-width: 44px; }
 
-    .toggle-label {
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: #374151;
-      min-width: 44px;
-    }
-
-    /* ── Stats Row (4 mini cards) ──────────────────────────── */
-    .stats-row {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
-    }
+    /* ── Stats Row (4 mini cards) ────────────────────────────── */
+    .stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
 
     .stat-mini {
-      background: #FFFFFF;
-      border: 1px solid #E5E7EB;
-      border-radius: 10px;
-      padding: 10px 8px;
-      text-align: center;
-      box-shadow: 0px 1px 2px rgba(0,0,0,0.05);
+      background: #FAFAFA; border: 1px solid #E5E7EB;
+      border-radius: 10px; padding: 10px 6px;
+      text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+    .stat-val  { font-size: 1.125rem; font-weight: 700; color: #111827; }
+    .stat-lbl  { font-size: 0.625rem; color: #9CA3AF; margin-top: 2px; }
+
+    /* ── Two stat cards (Extensions tab) ────────────────────── */
+    .stats-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .big-number { font-size: 2.5rem; font-weight: 700; color: #111827; margin-top: 8px; line-height: 1; }
+
+    /* ── Section header inside card ──────────────────────────── */
+    .section-header {
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 10px;
     }
 
-    .stat-val {
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: #111827;
-    }
-
-    .stat-lbl {
-      font-size: 0.6875rem;
-      color: #9CA3AF;
-      margin-top: 2px;
-    }
-
-    /* ── Two Stat Cards (Analysis Tab) ─────────────────────── */
-    .stats-two {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
-    .big-number {
-      font-size: 2.75rem;
-      font-weight: 700;
-      color: #111827;
-      margin-top: 8px;
-      line-height: 1;
-    }
-
-    /* ── Visit History ────────────────────────────────────── */
+    /* ── Visit History ────────────────────────────────────────── */
     .history-list {
-      max-height: 150px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
+      max-height: 140px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 4px;
     }
-
     .history-list::-webkit-scrollbar { width: 4px; }
-    .history-list::-webkit-scrollbar-track { background: transparent; }
     .history-list::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 2px; }
 
     .history-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 8px;
-      border-radius: 6px;
-      background: #F9FAFB;
-      border: 1px solid #F3F4F6;
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 8px; border-radius: 6px;
+      background: #F9FAFB; border: 1px solid #F3F4F6;
     }
-
-    .history-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
+    .history-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
     .history-dot.safe        { background: #22c55e; }
     .history-dot.suspicious  { background: #ef4444; }
     .history-dot.whitelisted { background: #3b82f6; }
     .history-dot.paste       { background: #f59e0b; }
     .history-dot.unknown     { background: #D1D5DB; }
+    .history-url  { flex: 1; font-size: 0.75rem; color: #374151; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .history-time { font-size: 0.6875rem; color: #9CA3AF; flex-shrink: 0; }
+    .history-empty { font-size: 0.8125rem; color: #9CA3AF; text-align: center; padding: 14px 0; }
 
-    .history-url {
-      flex: 1;
-      font-size: 0.75rem;
-      color: #374151;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .history-time {
-      font-size: 0.6875rem;
-      color: #9CA3AF;
-      flex-shrink: 0;
-    }
-
-    .history-empty {
-      font-size: 0.8125rem;
-      color: #9CA3AF;
-      text-align: center;
-      padding: 16px 0;
-    }
-
-    /* ── Device Status ───────────────────────────────────── */
-    .device-chip {
-      font-size: 0.6875rem;
-      font-weight: 600;
-      padding: 3px 10px;
-      border-radius: 12px;
-    }
-
+    /* ── Device Chip ──────────────────────────────────────────── */
+    .device-chip { font-size: 0.6875rem; font-weight: 600; padding: 3px 10px; border-radius: 12px; }
     .device-chip.trusted { background: #DBEAFE; color: #1D4ED8; }
     .device-chip.new     { background: #FEF3C7; color: #D97706; }
     .device-chip.unknown { background: #F3F4F6; color: #6B7280; }
+    .device-count { font-size: 0.75rem; color: #9CA3AF; }
 
-    .device-count {
-      font-size: 0.75rem;
-      color: #9CA3AF;
-    }
-
-    /* ── Buttons ─────────────────────────────────────────── */
+    /* ── Buttons ──────────────────────────────────────────────── */
     .link-btn {
-      background: none;
-      border: none;
-      font-size: 0.8125rem;
-      font-weight: 500;
-      color: #9C27B0;
-      cursor: pointer;
-      padding: 0;
-      font-family: inherit;
+      background: none; border: none; font-size: 0.8125rem; font-weight: 500;
+      color: #9C27B0; cursor: pointer; padding: 0; font-family: inherit;
     }
-
     .link-btn:hover { color: #7B1FA2; text-decoration: underline; }
 
     .icon-btn {
-      background: none;
-      border: none;
-      font-size: 0.8125rem;
-      color: #9CA3AF;
-      cursor: pointer;
-      padding: 2px 4px;
-      border-radius: 4px;
-      font-family: inherit;
+      background: none; border: none; font-size: 0.8125rem; color: #9CA3AF;
+      cursor: pointer; padding: 2px 4px; border-radius: 4px; font-family: inherit;
     }
-
     .icon-btn:hover { color: #ef4444; background: #FEF2F2; }
 
+    /* Primary purple button — pill-shaped like the screenshot */
     .btn-primary {
-      width: 100%;
-      padding: 13px;
-      background: #9C27B0;
-      color: #FFFFFF;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.9375rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s;
-      font-family: inherit;
+      width: 100%; padding: 13px;
+      background: #9C27B0; color: #FFFFFF;
+      border: none; border-radius: 10px;
+      font-size: 0.9375rem; font-weight: 600;
+      cursor: pointer; transition: background 0.2s; font-family: inherit;
     }
-
     .btn-primary:hover    { background: #7B1FA2; }
     .btn-primary:disabled { background: #D1D5DB; color: #9CA3AF; cursor: not-allowed; }
 
     .btn-primary-alt {
-      width: 100%;
-      padding: 13px;
-      background: #7159B3;
-      color: #FFFFFF;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.9375rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s;
-      font-family: inherit;
+      width: 100%; padding: 13px;
+      background: #7159B3; color: #FFFFFF;
+      border: none; border-radius: 10px;
+      font-size: 0.9375rem; font-weight: 600;
+      cursor: pointer; transition: background 0.2s; font-family: inherit;
     }
-
     .btn-primary-alt:hover    { background: #5C47A0; }
     .btn-primary-alt:disabled { background: #D1D5DB; color: #9CA3AF; cursor: not-allowed; }
 
     .btn-secondary {
-      padding: 8px 14px;
-      background: #F9FAFB;
-      color: #374151;
-      border: 1px solid #E5E7EB;
-      border-radius: 8px;
-      font-size: 0.875rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.2s;
-      font-family: inherit;
-      white-space: nowrap;
-      flex-shrink: 0;
+      padding: 8px 14px; background: #F9FAFB; color: #374151;
+      border: 1px solid #E5E7EB; border-radius: 8px;
+      font-size: 0.875rem; font-weight: 500; cursor: pointer;
+      transition: background 0.2s; font-family: inherit; white-space: nowrap; flex-shrink: 0;
     }
-
     .btn-secondary:hover { background: #F3F4F6; }
 
     .btn-secondary-full {
-      width: 100%;
-      padding: 11px;
-      background: #F9FAFB;
-      color: #374151;
-      border: 1px solid #E5E7EB;
-      border-radius: 8px;
-      font-size: 0.875rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.2s;
-      font-family: inherit;
+      width: 100%; padding: 11px; background: #F9FAFB; color: #374151;
+      border: 1px solid #E5E7EB; border-radius: 10px;
+      font-size: 0.875rem; font-weight: 500;
+      cursor: pointer; transition: background 0.2s; font-family: inherit;
     }
-
     .btn-secondary-full:hover { background: #F3F4F6; }
 
     .btn-outline {
-      padding: 7px 12px;
-      background: transparent;
-      color: #9C27B0;
-      border: 1.5px solid #9C27B0;
-      border-radius: 8px;
-      font-size: 0.8125rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-family: inherit;
-      white-space: nowrap;
-      flex-shrink: 0;
+      padding: 7px 12px; background: transparent; color: #9C27B0;
+      border: 1.5px solid #9C27B0; border-radius: 8px;
+      font-size: 0.8125rem; font-weight: 600; cursor: pointer;
+      transition: all 0.2s; font-family: inherit; white-space: nowrap; flex-shrink: 0;
     }
-
     .btn-outline:hover { background: #F3E8FF; }
 
     .btn-outline-red {
-      padding: 7px 12px;
-      background: transparent;
-      color: #DC2626;
-      border: 1.5px solid #FECACA;
-      border-radius: 8px;
-      font-size: 0.8125rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-family: inherit;
+      padding: 7px 12px; background: transparent; color: #DC2626;
+      border: 1.5px solid #FECACA; border-radius: 8px;
+      font-size: 0.8125rem; font-weight: 500; cursor: pointer;
+      transition: all 0.2s; font-family: inherit;
     }
-
     .btn-outline-red:hover { background: #FEF2F2; border-color: #FCA5A5; }
 
     .btn-green {
-      padding: 8px 16px;
-      background: #16A34A;
-      color: #FFFFFF;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.8125rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: background 0.2s;
-      font-family: inherit;
-      white-space: nowrap;
+      padding: 8px 16px; background: #16A34A; color: #FFFFFF; border: none;
+      border-radius: 8px; font-size: 0.8125rem; font-weight: 700;
+      cursor: pointer; transition: background 0.2s; font-family: inherit; white-space: nowrap;
     }
-
     .btn-green:hover { background: #15803D; }
 
-    /* ── Input / Field Styles ────────────────────────────── */
+    /* ── Inputs ───────────────────────────────────────────────── */
     .field-input {
-      width: 100%;
-      background: #F9FAFB;
-      border: 1px solid #E5E7EB;
-      border-radius: 8px;
-      color: #111827;
-      font-size: 0.875rem;
-      padding: 9px 12px;
-      outline: none;
-      font-family: inherit;
-      transition: border-color 0.2s, box-shadow 0.2s;
+      width: 100%; background: #F9FAFB; border: 1px solid #E5E7EB;
+      border-radius: 8px; color: #111827; font-size: 0.875rem;
+      padding: 9px 12px; outline: none; font-family: inherit; transition: border-color 0.2s, box-shadow 0.2s;
     }
-
     .field-input::placeholder { color: #9CA3AF; }
-
-    .field-input:focus {
-      border-color: #9C27B0;
-      box-shadow: 0 0 0 3px rgba(156,39,176,0.12);
-    }
+    .field-input:focus { border-color: #9C27B0; box-shadow: 0 0 0 3px rgba(156,39,176,0.10); }
 
     .field-textarea {
-      width: 100%;
-      background: #F9FAFB;
-      border: 1px solid #E5E7EB;
-      border-radius: 8px;
-      color: #111827;
-      font-size: 0.75rem;
-      font-family: monospace;
-      padding: 8px 12px;
-      outline: none;
-      resize: vertical;
-      min-height: 58px;
-      max-height: 100px;
-      line-height: 1.4;
+      width: 100%; background: #F9FAFB; border: 1px solid #E5E7EB;
+      border-radius: 8px; color: #111827; font-size: 0.75rem;
+      font-family: monospace; padding: 8px 12px; outline: none;
+      resize: vertical; min-height: 58px; max-height: 100px; line-height: 1.4;
       transition: border-color 0.2s, box-shadow 0.2s;
     }
-
     .field-textarea::placeholder { color: #9CA3AF; }
+    .field-textarea:focus { border-color: #9C27B0; box-shadow: 0 0 0 3px rgba(156,39,176,0.10); }
 
-    .field-textarea:focus {
-      border-color: #9C27B0;
-      box-shadow: 0 0 0 3px rgba(156,39,176,0.12);
-    }
-
-    .input-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-
+    .input-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
     .input-row .field-input { flex: 1; }
+    .keygen-row  { display: flex; gap: 8px; align-items: center; }
+    .hint-text   { font-size: 0.75rem; color: #9CA3AF; line-height: 1.3; }
+    .row-end     { display: flex; gap: 8px; align-items: center; }
+    .btn-row     { display: flex; gap: 8px; margin-top: 10px; }
 
-    .keygen-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .hint-text {
-      font-size: 0.75rem;
-      color: #9CA3AF;
-      line-height: 1.3;
-    }
-
-    .row-end {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .btn-row {
-      display: flex;
-      gap: 8px;
-      margin-top: 10px;
-    }
-
-    /* ── Firestore Config (collapsible) ──────────────────── */
-    .fs-config {
-      margin-top: 4px;
-      border: 1px solid #E5E7EB;
-      border-radius: 10px;
-      overflow: hidden;
-    }
-
+    /* ── Firestore config ─────────────────────────────────────── */
+    .fs-config { margin-top: 4px; border: 1px solid #E5E7EB; border-radius: 10px; overflow: hidden; }
     .fs-config summary {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 14px;
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: #374151;
-      cursor: pointer;
-      user-select: none;
-      list-style: none;
-      background: #F9FAFB;
-      gap: 8px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; font-size: 0.875rem; font-weight: 600;
+      color: #374151; cursor: pointer; user-select: none; list-style: none;
+      background: #F9FAFB; gap: 8px;
     }
-
     .fs-config summary::-webkit-details-marker { display: none; }
     .fs-config summary:hover { background: #F3F4F6; }
 
-    .fs-chip {
-      font-size: 0.6875rem;
-      font-weight: 600;
-      padding: 2px 10px;
-      border-radius: 10px;
-      flex-shrink: 0;
-    }
-
+    .fs-chip { font-size: 0.6875rem; font-weight: 600; padding: 2px 10px; border-radius: 10px; flex-shrink: 0; }
     .fs-chip.set   { background: #DCFCE7; color: #16A34A; }
     .fs-chip.unset { background: #FEE2E2; color: #DC2626; }
 
     .fs-body {
-      padding: 14px;
-      background: #FFFFFF;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
+      padding: 14px; background: #FFFFFF;
+      display: flex; flex-direction: column; gap: 10px;
       border-top: 1px solid #F3F4F6;
     }
 
-    .fs-status {
-      font-size: 0.75rem;
-      padding: 4px 9px;
-      border-radius: 6px;
-      display: none;
-    }
-
+    .fs-status { font-size: 0.75rem; padding: 4px 9px; border-radius: 6px; display: none; }
     .fs-status.ok    { background: #F0FDF4; color: #16A34A; border: 1px solid #BBF7D0; display: inline-block; }
     .fs-status.error { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; display: inline-block; }
 
-    /* ── Report Status ──────────────────────────────────── */
-    .report-status {
-      margin-top: 8px;
-      font-size: 0.8125rem;
-      padding: 9px 12px;
-      border-radius: 8px;
-      display: none;
-      font-family: inherit;
-      line-height: 1.4;
-    }
-
+    /* ── Report status ────────────────────────────────────────── */
+    .report-status { margin-top: 8px; font-size: 0.8125rem; padding: 9px 12px; border-radius: 8px; display: none; line-height: 1.4; }
     .report-status.ok    { background: #F0FDF4; color: #15803D; border: 1px solid #BBF7D0; display: block; }
     .report-status.error { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; display: block; }
     .report-status.busy  { background: #F5F3FF; color: #7C3AED; border: 1px solid #DDD6FE; display: block; }
 
-    /* ── Extension Analysis ──────────────────────────────── */
-    .ext-item {
-      padding: 12px 14px;
-      border: 1px solid #E5E7EB;
-      border-radius: 8px;
-      border-left: 4px solid #2563EB;
-      background: #FAFAFA;
-      margin-bottom: 8px;
-    }
-
+    /* ── Extension Analysis ───────────────────────────────────── */
+    .ext-item { padding: 12px 14px; border: 1px solid #E5E7EB; border-radius: 8px; border-left: 4px solid #2563EB; background: #FAFAFA; margin-bottom: 8px; }
     .ext-item:last-child { margin-bottom: 0; }
-
-    .ext-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 4px;
-    }
-
-    .ext-name {
-      font-size: 1rem;
-      font-weight: 700;
-      color: #111827;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .risk-badge {
-      font-size: 0.75rem;
-      font-weight: 600;
-      padding: 3px 9px;
-      border-radius: 4px;
-      flex-shrink: 0;
-    }
-
+    .ext-row  { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+    .ext-name { font-size: 1rem; font-weight: 700; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .risk-badge { font-size: 0.75rem; font-weight: 600; padding: 3px 9px; border-radius: 4px; flex-shrink: 0; }
     .risk-badge.risk-high   { background: #FEE2E2; color: #991B1B; }
     .risk-badge.risk-medium { background: #FEF3C7; color: #92400E; }
     .risk-badge.risk-low    { background: #DCFCE7; color: #166534; }
+    .ext-perms { font-size: 0.8125rem; color: #6B7280; line-height: 1.4; }
 
-    .ext-perms {
-      font-size: 0.8125rem;
-      color: #6B7280;
-      line-height: 1.4;
+    .empty-msg { font-size: 0.875rem; color: #9CA3AF; text-align: center; padding: 24px 0; }
+
+    /* ── Visual divider ───────────────────────────────────────── */
+    .section-divider {
+      border: none; border-top: 1px solid #F3F4F6; margin: 2px 0;
     }
 
-    .empty-msg {
-      font-size: 0.875rem;
-      color: #9CA3AF;
-      text-align: center;
-      padding: 24px 0;
-    }
-
-    /* ── Legacy elements hidden in new UI ────────────────── */
-    /* Kept in DOM so popup.js getElementById calls don't break */
+    /* ── Legacy hidden elements (popup.js compat) ─────────────── */
     .score-badge,
-    .score-badge.safe,
-    .score-badge.caution,
-    .score-badge.danger,
-    .score-badge.unknown {
-      display: none !important;
-    }
-
-    .status-indicator,
-    .status-indicator.off {
+    .score-badge.safe, .score-badge.caution,
+    .score-badge.danger, .score-badge.unknown,
+    .status-indicator, .status-indicator.off {
       display: none !important;
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    <img class="logo" src="../assets/flux-logo.svg" alt="Flux shield logo" />
-    <span class="title">PromptArmor</span>
-  </div>
-  
-  <div class="status">
-    <div class="status-label">
-      <span class="status-indicator" id="statusIndicator"></span>
-      <span>Protection</span>
-    </div>
-    <div class="toggle on" id="toggle"></div>
-  </div>
-  
-  <div class="quick-score">
-    <div class="score-badge unknown" id="scoreBadge">
-      <span>Analyzing...</span>
-    </div>
-  </div>
-  
-  <div class="actions">
-    <button class="btn btn-panel" id="openPanelBtn">Open Side Panel</button>
-    <button class="btn btn-rescan" id="rescanBtn">Rescan Current Page</button>
-  </div>
-  
-  <!-- Visit History -->
-  <div class="history">
-    <div class="history-header">
-      <span class="history-title">Visit History</span>
-      <button class="history-clear" id="clearHistoryBtn">Clear</button>
-    </div>
-    <div class="history-list" id="historyList">
-      <div class="history-empty">No visits recorded yet</div>
+
+  <!-- Legacy JS-compat elements (hidden) -->
+  <span id="statusIndicator" class="status-indicator" aria-hidden="true"></span>
+  <span id="scoreBadge" class="score-badge unknown" aria-hidden="true"></span>
+
+  <div class="frame">
+
+    <!-- ── Header ────────────────────────────────────────────── -->
+    <div class="header">
+      <!-- Try PNG first, fall back to SVG, then inline fallback (handled in popup.js) -->
+      <img
+        id="logoImg"
+        class="logo-img"
+        src="../assets/logo.svg"
+        alt="FLUX"
+      />
+      <div id="logoFallback" class="logo-fallback" style="display:none">
+        <span class="logo-fallback-text">FLUX</span>
+        <span class="logo-fallback-icon">🛡️</span>
+      </div>
+      <button class="close-btn" id="closePopupBtn" title="Close">✕</button>
     </div>
 
-    <!-- ── Tab Bar ─────────────────────────────────────────── -->
+    <!-- ── Tab Bar ────────────────────────────────────────────── -->
     <div class="tab-bar">
-      <button class="tab active" data-panel="panel-security">🛡️ Security</button>
-      <button class="tab"        data-panel="panel-analysis">🔍 Extensions</button>
+      <!-- Security Status tab -->
+      <button class="tab active" data-panel="panel-security">
+        <!-- Circle/shield icon -->
+        <svg class="tab-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.8"/>
+          <circle cx="10" cy="10" r="3" fill="currentColor"/>
+        </svg>
+        Security Status
+      </button>
+      <!-- Extensions tab -->
+      <button class="tab" data-panel="panel-analysis">
+        <!-- Grid icon -->
+        <svg class="tab-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="3" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.7"/>
+          <rect x="11" y="3" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.7"/>
+          <rect x="3" y="11" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.7"/>
+          <rect x="11" y="11" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.7"/>
+        </svg>
+        Extensions
+      </button>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════
-         PANEL 1 · Security
-         ══════════════════════════════════════════════════════ -->
+
+    <!-- ══════════════════════════════════════════════════════════
+         PANEL 1 · Security Status
+         ══════════════════════════════════════════════════════════ -->
     <div class="panel" id="panel-security">
 
       <!-- Security Score card -->
@@ -766,7 +497,7 @@
           <div class="card-text">
             <div class="card-title">Security Score</div>
             <div class="card-desc">
-              Calculated from current page analysis, detected threats, and device trust level.
+              The score is calculated based on current page analysis and threat detection
             </div>
           </div>
           <div class="score-box">
@@ -774,29 +505,46 @@
               <span class="score-number" id="scoreNumber">--</span>
               <span class="score-number-suffix">/100</span>
             </div>
-            <div class="score-status">
-              <span id="scoreStatusIcon">⏳</span>
-              <span id="scoreStatusText">Analyzing</span>
+            <div class="cep-score-status cep-warning" id="cepScoreStatus">
+              ⚠ CEP Not Detected
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Protection toggle card -->
+      <!-- CEP Usage card -->
       <div class="card">
         <div class="card-body row-between">
           <div class="card-text">
+            <div class="card-title">CEP Usage</div>
+            <div class="card-desc">
+              Detects and verifies active CEP security features
+            </div>
+          </div>
+          <span class="cep-usage-status cep-inactive-text" id="cepStatus">Not Used ×</span>
+        </div>
+      </div>
+
+      <!-- Run Assessment button (primary CTA) -->
+      <button class="btn-primary" id="rescanBtn">Run Assessment</button>
+
+      <hr class="section-divider">
+
+      <!-- Protection toggle card -->
+      <!-- <div class="card">
+        <div class="card-body row-between">
+          <div class="card-text">
             <div class="card-title">Protection</div>
-            <div class="card-desc">Real-time prompt injection &amp; threat detection.</div>
+            <div class="card-desc">Real-time prompt injection &amp; threat detection</div>
           </div>
           <div class="toggle-wrap">
             <div class="toggle on" id="toggle"></div>
             <span class="toggle-label" id="toggleLabel">Active</span>
           </div>
         </div>
-      </div>
+      </div> -->
 
-      <!-- Stats row: Blocked · Warned · Events · Scanned -->
+      <!-- Stats row -->
       <div class="stats-row">
         <div class="stat-mini">
           <div class="stat-val" id="dlBlocked">0</div>
@@ -829,6 +577,49 @@
         </div>
       </div>
 
+      <!-- AI Provider config card -->
+      <div class="card">
+        <div class="card-body">
+          <div class="section-header">
+            <span class="card-title">🤖 AI Provider</span>
+            <span class="fs-chip unset" id="aiChip">Not Set</span>
+          </div>
+
+          <!-- Provider selector -->
+          <select class="field-input" id="aiProvider" style="margin-bottom:10px">
+            <option value="gemini-nano">Gemini Nano — on-device, free</option>
+            <option value="gemini-api">Gemini API — Flash 1.5, cloud ☁️</option>
+            <option value="gemma-ollama">Gemma via Ollama — local</option>
+          </select>
+
+          <!-- Backend server info (shown only for gemini-api) -->
+          <div id="geminiApiSection" style="display:none; margin-bottom:10px">
+            <p class="hint-text" style="padding:9px 11px; background:#F3E8FF;
+               border-radius:8px; color:#6B21A8; border:1px solid #DDD6FE; line-height:1.5">
+              🔒 <strong>API key stays on the server.</strong><br>
+              Calls are proxied through the Backend Server URL set in the
+              <em>Security Report → Firestore Config</em> section below.
+              Make sure the server is running and the URL is saved.
+            </p>
+          </div>
+
+          <!-- Ollama / Gemma (shown only for gemma-ollama) -->
+          <div id="ollamaSection" style="display:none; margin-bottom:10px">
+            <input class="field-input" id="ollamaEndpoint" type="text"
+              placeholder="http://localhost:11434" autocomplete="off"
+              style="margin-bottom:8px"/>
+            <input class="field-input" id="gemmaModel" type="text"
+              placeholder="Model name  (e.g. gemma2:2b)" autocomplete="off"/>
+          </div>
+
+          <div class="btn-row" style="margin-top:6px">
+            <button class="btn-green" id="aiSaveBtn">Save</button>
+            <button class="btn-outline" id="aiTestBtn">🧪 Test</button>
+            <span class="fs-status" id="aiStatus"></span>
+          </div>
+        </div>
+      </div>
+
       <!-- Security Report card -->
       <div class="card">
         <div class="card-body">
@@ -836,49 +627,33 @@
             <span class="card-title">Security Report</span>
           </div>
 
-          <!-- Reporter email -->
           <div class="input-row">
             <input
-              type="email"
-              class="field-input"
-              id="reportEmailInput"
-              placeholder="your@email.com"
-              autocomplete="off"
+              type="email" class="field-input" id="reportEmailInput"
+              placeholder="your@email.com" autocomplete="off"
             />
             <button class="btn-secondary" id="reportEmailSave">Save</button>
           </div>
 
-          <!-- Firestore / backend config (collapsible) -->
           <details class="fs-config" id="fsConfigDetails">
             <summary>
               ⚙️ Firestore Config
               <span class="fs-chip unset" id="fsChip">Not Set</span>
             </summary>
             <div class="fs-body">
-              <input
-                class="field-input"
-                id="fsBackendUrl"
-                type="text"
-                placeholder="http://localhost:5000"
-                autocomplete="off"
-              />
-              <input
-                class="field-input"
-                id="fsApiKey"
-                type="password"
-                placeholder="Extension API Key"
-                autocomplete="off"
-              />
+              <input class="field-input" id="fsBackendUrl" type="text"
+                placeholder="http://localhost:5000" autocomplete="off"/>
+              <input class="field-input" id="fsApiKey" type="password"
+                placeholder="Extension API Key" autocomplete="off"/>
+              <input class="field-input" id="fsTenantId" type="text"
+                placeholder="Tenant / Org ID (optional)" autocomplete="off"/>
               <div class="keygen-row">
                 <button class="btn-outline" id="fsGenKeyBtn">🔑 Generate Keys</button>
                 <span class="hint-text">Private key downloads automatically</span>
               </div>
-              <textarea
-                class="field-textarea"
-                id="fsPubKeyPem"
-                placeholder="-----BEGIN PUBLIC KEY-----&#10;(auto-filled after Generate, or paste yours)"
-                spellcheck="false"
-              ></textarea>
+              <textarea class="field-textarea" id="fsPubKeyPem"
+                placeholder="-----BEGIN PUBLIC KEY-----&#10;(auto-filled after Generate)"
+                spellcheck="false"></textarea>
               <div class="row-end">
                 <button class="btn-green" id="fsSaveBtn">Save Config</button>
                 <span class="fs-status" id="fsStatus"></span>
@@ -886,13 +661,10 @@
             </div>
           </details>
 
-          <!-- Event log action buttons -->
           <div class="btn-row">
             <button class="btn-outline" id="downloadJsonBtn">⬇️ Download JSON</button>
             <button class="btn-outline-red" id="reportClearEventsBtn">Clear Log</button>
           </div>
-
-          <!-- Upload status message -->
           <div class="report-status" id="reportStatus"></div>
         </div>
       </div>
@@ -912,37 +684,34 @@
         </div>
       </div>
 
-      <!-- Primary action buttons -->
-      <button class="btn-primary" id="reportRunBtn">🔐 Generate &amp; Upload Report</button>
-      <button class="btn-secondary-full" id="rescanBtn">🔄 Rescan Current Page</button>
+      <!-- Generate & Upload report button -->
+      <button class="btn-primary-alt" id="reportRunBtn">🔐 Generate &amp; Upload Report</button>
 
     </div><!-- /panel-security -->
 
 
-    <!-- ══════════════════════════════════════════════════════
+    <!-- ══════════════════════════════════════════════════════════
          PANEL 2 · Extensions
-         ══════════════════════════════════════════════════════ -->
+         ══════════════════════════════════════════════════════════ -->
     <div class="panel hidden" id="panel-analysis">
 
-      <!-- Extension stats row -->
       <div class="stats-two">
         <div class="card">
           <div class="card-body">
             <div class="card-title">Installed</div>
-            <div class="card-desc">Total active browser extensions</div>
+            <div class="card-desc">Active browser extensions</div>
             <div class="big-number" id="totalExtensions">--</div>
           </div>
         </div>
         <div class="card">
           <div class="card-body">
             <div class="card-title">Insecure</div>
-            <div class="card-desc">Extensions with high-risk permissions</div>
+            <div class="card-desc">High-risk permissions</div>
             <div class="big-number" id="riskyExtensions">--</div>
           </div>
         </div>
       </div>
 
-      <!-- Extension analysis list card -->
       <div class="card">
         <div class="card-body">
           <div class="card-title" style="margin-bottom:12px">Analysis</div>
@@ -952,7 +721,6 @@
         </div>
       </div>
 
-      <!-- Rescan button -->
       <button class="btn-primary-alt" id="rescanExtBtn">🔄 Rescan Extensions</button>
 
     </div><!-- /panel-analysis -->

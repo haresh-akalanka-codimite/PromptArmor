@@ -368,7 +368,6 @@ async function loadAIConfig() {
   const result = await chrome.storage.local.get(['aiConfig']);
   return result.aiConfig || {
     provider: AI_PROVIDERS.GEMINI_NANO,
-    geminiApiKey: '',
     ollamaEndpoint: 'http://localhost:11434',
     gemmaModel: 'gemma2:2b'
   };
@@ -387,29 +386,37 @@ function parseBinaryVerdict(raw, textForFallback = '') {
   return performPatternAnalysis(textForFallback);
 }
 
-async function analyzeWithGeminiAPI(text, apiKey) {
-  const prompt = SECURITY_PROMPT.replace('{TEXT}', text.substring(0, 10000));
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0, maxOutputTokens: 10 },
-        safetySettings: [
-          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-        ]
-      })
-    }
-  );
-  if (!response.ok) throw new Error(`Gemini API error: ${response.status}`);
+/**
+ * Call the PromptArmor backend /analyze endpoint.
+ * The Gemini API key lives exclusively on the server — never in the extension.
+ *
+ * @param {string} text            Page text to analyze
+ * @param {string} backendUrl      e.g. "http://localhost:5000"
+ * @param {string} extensionApiKey Optional x-extension-api-key header value
+ * @returns {Promise<'YES'|'NO'>}
+ */
+async function analyzeViaBackend(text, backendUrl, extensionApiKey) {
+  const url     = backendUrl.replace(/\/+$/, '') + '/analyze';
+  const headers = { 'Content-Type': 'application/json' };
+  if (extensionApiKey) headers['x-extension-api-key'] = extensionApiKey;
+
+  const response = await fetch(url, {
+    method:  'POST',
+    headers,
+    body:    JSON.stringify({ text: text.substring(0, 10000) })
+  });
+
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}));
+    throw new Error(`Backend /analyze ${response.status}: ${detail.error || 'unknown'}`);
+  }
+
   const data = await response.json();
-  const rawAnswer = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  return parseBinaryVerdict(rawAnswer, text);
+  // Server returns { verdict: 'YES'|'NO', reason: '...' }
+  if (data.verdict === 'YES' || data.verdict === 'NO') return data.verdict;
+
+  // Older server versions returned { result: 'VERDICT: YES\n...' } — handle gracefully
+  return parseBinaryVerdict(data.result || '', text);
 }
 
 async function analyzeWithGemmaOllama(text, endpoint, model) {
@@ -435,9 +442,14 @@ async function analyzeWithAI(text) {
 
   try {
     switch (config.provider) {
-      case AI_PROVIDERS.GEMINI_API:
-        if (config.geminiApiKey) return await analyzeWithGeminiAPI(text, config.geminiApiKey);
-        break;
+      case AI_PROVIDERS.GEMINI_API: {
+        // API key lives exclusively on the backend server — read its URL from
+        // dailyReportConfig (the same config used by the report pipeline).
+        const cfgStore  = await chrome.storage.local.get(['dailyReportConfig']);
+        const backendUrl = cfgStore.dailyReportConfig?.backendUrl   || 'http://localhost:5000';
+        const extApiKey  = cfgStore.dailyReportConfig?.extensionApiKey || '';
+        return await analyzeViaBackend(text, backendUrl, extApiKey);
+      }
       case AI_PROVIDERS.GEMMA_OLLAMA:
         return await analyzeWithGemmaOllama(
           text,
@@ -453,10 +465,18 @@ async function analyzeWithAI(text) {
           return parseBinaryVerdict(response, text);
         }
 
-        // If on-device Nano is unavailable, prefer Gemini Flash when an API key
-        // is configured, then fall back to local pattern analysis.
-        if (config.geminiApiKey) {
-          return await analyzeWithGeminiAPI(text, config.geminiApiKey);
+        // On-device Nano unavailable — try the backend server as a fallback if
+        // it is already configured (i.e. dailyReportConfig.backendUrl is set).
+        {
+          const cfgStore  = await chrome.storage.local.get(['dailyReportConfig']);
+          const backendUrl = cfgStore.dailyReportConfig?.backendUrl || '';
+          if (backendUrl) {
+            return await analyzeViaBackend(
+              text,
+              backendUrl,
+              cfgStore.dailyReportConfig?.extensionApiKey || ''
+            );
+          }
         }
         break;
     }

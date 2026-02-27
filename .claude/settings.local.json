@@ -3,7 +3,14 @@
     "allow": [
       "Bash(node -e \":*)",
       "Bash(node /c/test/PromptArmor/test-paste.js)",
-      "Bash(node /c/test/PromptArmor/test-sanitize.js)"
+      "Bash(node /c/test/PromptArmor/test-sanitize.js)",
+      "Bash(dir \"C:\\\\test\\\\PromptArmor\\\\src\\\\assets\")",
+      "Bash(node --version)",
+      "Bash(python -c \"from PIL import Image; print\\(''PIL OK''\\)\")",
+      "Bash(where py)",
+      "Bash(py --version)",
+      "Bash(where python3)",
+      "Bash(py -c \":*)"
     ]
   }
 }

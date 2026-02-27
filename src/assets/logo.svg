@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 148 36" width="148" height="36">
+  <!-- FLUX bold text -->
+  <text x="2" y="27"
+    font-family="'Inter', 'Arial Black', 'Helvetica Neue', sans-serif"
+    font-weight="800"
+    font-size="25"
+    letter-spacing="-0.5"
+    fill="#5B21B6">FLUX</text>
+
+  <!-- Shield body -->
+  <path
+    d="M110,3 L97,7.5 L97,16.5 C97,23.5 103,29.5 110,32 C117,29.5 123,23.5 123,16.5 L123,7.5 Z"
+    fill="#EDE9FE"
+    stroke="#7C3AED"
+    stroke-width="1.6"
+    stroke-linejoin="round"/>
+
+  <!-- Checkmark inside shield -->
+  <polyline
+    points="104.5,17.5 108,21.5 115.5,13"
+    fill="none"
+    stroke="#7C3AED"
+    stroke-width="2.2"
+    stroke-linecap="round"
+    stroke-linejoin="round"/>
+</svg>
