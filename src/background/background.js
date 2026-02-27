@@ -16,6 +16,110 @@ Answer ONLY with YES (if suspicious) or NO (if safe).
 
 const trustData = new Map();
 
+const DOWNLOAD_RISK_CONFIG = {
+  riskyExtensions: [
+    '.exe', '.msi', '.bat', '.cmd', '.ps1', '.scr', '.jar', '.vbs', '.js',
+    '.hta', '.iso', '.dll', '.reg', '.apk', '.appx', '.dmg', '.pkg', '.deb', '.rpm'
+  ],
+  riskyMimePrefixes: [
+    'application/x-msdownload',
+    'application/x-dosexec',
+    'application/vnd.microsoft.portable-executable',
+    'application/java-archive',
+    'application/x-bat',
+    'application/x-ms-installer',
+    'application/x-powershell',
+    'application/x-executable',
+    'application/x-mach-binary',
+    'application/x-iso9660-image'
+  ],
+  highDangerStates: ['dangerous', 'dangerous_host', 'dangerous_file', 'malicious'],
+  elevatedDangerStates: ['uncommon', 'potentially_unwanted', 'allowlisted_by_policy']
+};
+
+function getFileExtension(filename = '') {
+  const normalized = String(filename).toLowerCase().split('?')[0].split('#')[0];
+  const dotIndex = normalized.lastIndexOf('.');
+  return dotIndex > -1 ? normalized.slice(dotIndex) : '';
+}
+
+function assessDownloadRisk(downloadItem) {
+  const extension = getFileExtension(downloadItem.filename || '');
+  const mime = (downloadItem.mime || '').toLowerCase();
+  const danger = (downloadItem.danger || 'safe').toLowerCase();
+  const finalUrl = (downloadItem.finalUrl || downloadItem.url || '').toLowerCase();
+
+  const reasons = [];
+  let score = 0;
+
+  if (DOWNLOAD_RISK_CONFIG.riskyExtensions.includes(extension)) {
+    score += 35;
+    reasons.push(`risky-extension:${extension}`);
+  }
+
+  if (mime && DOWNLOAD_RISK_CONFIG.riskyMimePrefixes.some(prefix => mime.startsWith(prefix))) {
+    score += 35;
+    reasons.push(`risky-mime:${mime}`);
+  }
+
+  if (DOWNLOAD_RISK_CONFIG.highDangerStates.includes(danger)) {
+    score += 60;
+    reasons.push(`chrome-danger:${danger}`);
+  } else if (DOWNLOAD_RISK_CONFIG.elevatedDangerStates.includes(danger)) {
+    score += 30;
+    reasons.push(`chrome-danger:${danger}`);
+  }
+
+  if (finalUrl.startsWith('http://')) {
+    score += 10;
+    reasons.push('insecure-transport:http');
+  }
+
+  if (score >= 60) {
+    return { action: 'block', score, reasons, extension, mime, danger };
+  }
+
+  if (score >= 30) {
+    return { action: 'warn', score, reasons, extension, mime, danger };
+  }
+
+  return { action: 'allow', score, reasons, extension, mime, danger };
+}
+
+async function handleDownloadCreated(downloadItem) {
+  try {
+    const assessment = assessDownloadRisk(downloadItem);
+    if (assessment.action === 'allow') return;
+
+    const payload = {
+      id: downloadItem.id,
+      filename: downloadItem.filename,
+      url: downloadItem.finalUrl || downloadItem.url,
+      mime: downloadItem.mime || 'unknown',
+      danger: downloadItem.danger || 'safe',
+      timestamp: Date.now(),
+      score: assessment.score,
+      action: assessment.action,
+      reasons: assessment.reasons
+    };
+
+    if (assessment.action === 'block') {
+      await chrome.downloads.cancel(downloadItem.id).catch(() => {});
+      await recordThreat('risky_download_blocked', JSON.stringify(payload).slice(0, 300));
+    } else {
+      await recordThreat('risky_download_warn', JSON.stringify(payload).slice(0, 300));
+    }
+
+    chrome.runtime.sendMessage({
+      type: 'PROMPTARMOR_UPDATE',
+      data: { verdict: 'DOWNLOAD_RISK', origin: new URL(payload.url).origin, downloadRisk: payload }
+    }).catch(() => {});
+  } catch (error) {
+    console.error('PromptArmor handleDownloadCreated error:', error);
+  }
+}
+
+
 /**
  * Check if protection is enabled in settings
  */
@@ -389,6 +493,13 @@ async function handleRegisterDevice(message) {
 }
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {});
+
+
+chrome.downloads.onCreated.addListener(downloadItem => {
+  handleDownloadCreated(downloadItem).catch(err =>
+    console.error('PromptArmor download listener error:', err)
+  );
+});
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.set({

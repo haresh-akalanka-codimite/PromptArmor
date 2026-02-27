@@ -10,7 +10,8 @@
     "tabs",
     "declarativeNetRequest",
     "sidePanel",
-    "management"
+    "management",
+    "downloads"
   ],
   "host_permissions": [
   "http://localhost:11434/*"

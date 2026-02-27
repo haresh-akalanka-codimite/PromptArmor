@@ -44,3 +44,18 @@ What it does:
 Notes:
 - Running E2E requires a full Chromium and may prompt for permission. Close the launched browser when done.
 - For CI, you can add Puppeteer to CI dependencies and run this script in a Linux runner with Chrome available.
+
+
+## Download Risk Protection (MV3)
+
+PromptArmor now monitors file downloads via the Chrome Downloads API and performs layered risk checks:
+- File extension risk (e.g. `.exe`, `.msi`, `.bat`, `.jar`, `.iso`).
+- MIME risk (e.g. `application/x-msdownload`, PE / installer / executable MIME families).
+- Chrome Safe Browsing danger signal (`dangerous`, `uncommon`, `potentially_unwanted`, etc.).
+- Transport signal (`http://` download source increases risk).
+
+Behavior:
+- High risk: PromptArmor cancels the download and records a `risky_download_blocked` threat.
+- Medium risk: PromptArmor records a `risky_download_warn` threat.
+- Updates are emitted through runtime messages as `DOWNLOAD_RISK` verdicts.
+
