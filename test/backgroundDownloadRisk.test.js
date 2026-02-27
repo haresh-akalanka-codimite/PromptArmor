@@ -179,6 +179,40 @@ describe('AI verdict parsing', () => {
 });
 
 
+
+
+describe('backend analyze authentication fallback', () => {
+  it('retries without extension key when backend rejects x-extension-api-key', async () => {
+    const ctx = loadBackgroundContext();
+
+    ctx.fetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: 'Unauthorized: invalid x-extension-api-key' })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ verdict: 'NO' })
+      });
+
+    const verdict = await ctx.analyzeViaBackend(
+      'normal content',
+      'http://localhost:5000',
+      'stale-key'
+    );
+
+    expect(verdict).toBe('NO');
+    expect(ctx.fetch).toHaveBeenCalledTimes(2);
+
+    const firstHeaders = ctx.fetch.mock.calls[0][1].headers;
+    const secondHeaders = ctx.fetch.mock.calls[1][1].headers;
+    expect(firstHeaders['x-extension-api-key']).toBe('stale-key');
+    expect(secondHeaders['x-extension-api-key']).toBeUndefined();
+  });
+});
+
 describe('Gemini Flash fallback from Gemini Nano mode', () => {
   it('uses Gemini API when Nano is unavailable and API key exists', async () => {
     const ctx = loadBackgroundContext({
