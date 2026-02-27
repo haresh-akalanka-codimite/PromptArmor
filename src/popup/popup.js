@@ -463,10 +463,11 @@ async function loadAIProviderConfig() {
       ollamaEndpoint: 'http://localhost:11434',
       gemmaModel:     'gemma2:2b'
     };
-    const backendConfigured = !!(result.dailyReportConfig?.backendUrl);
-
     const providerEl = document.getElementById('aiProvider');
     if (providerEl) providerEl.value = cfg.provider || 'gemini-nano';
+
+    const keyEl = document.getElementById('geminiApiKey');
+    if (keyEl) keyEl.value = cfg.geminiApiKey || result.dailyReportConfig?.extensionApiKey || '';
 
     const epEl = document.getElementById('ollamaEndpoint');
     if (epEl) epEl.value = cfg.ollamaEndpoint || 'http://localhost:11434';
@@ -479,7 +480,7 @@ async function loadAIProviderConfig() {
     if (chip) {
       const isConfigured =
         cfg.provider === 'gemini-nano' ||
-        (cfg.provider === 'gemini-api'   && backendConfigured) ||
+        cfg.provider === 'gemini-api' ||
         (cfg.provider === 'gemma-ollama' && !!cfg.ollamaEndpoint);
       chip.textContent = isConfigured
         ? ({ 'gemini-nano': 'Nano', 'gemini-api': 'Gemini API', 'gemma-ollama': 'Ollama' }[cfg.provider] || cfg.provider)
@@ -495,13 +496,14 @@ async function loadAIProviderConfig() {
 
 async function saveAIProviderConfig() {
   const provider       = document.getElementById('aiProvider')?.value            || 'gemini-nano';
+  const geminiApiKey   = document.getElementById('geminiApiKey')?.value.trim()   || '';
   const ollamaEndpoint = document.getElementById('ollamaEndpoint')?.value.trim() || 'http://localhost:11434';
   const gemmaModel     = document.getElementById('gemmaModel')?.value.trim()     || 'gemma2:2b';
   const status         = document.getElementById('aiStatus');
 
-  // Note: gemini-api no longer stores an API key here — the key lives on the
-  // backend server. We only persist provider / Ollama settings.
-  await chrome.storage.local.set({ aiConfig: { provider, ollamaEndpoint, gemmaModel } });
+  const nextConfig = { provider, geminiApiKey, ollamaEndpoint, gemmaModel };
+
+  await chrome.storage.local.set({ aiConfig: nextConfig });
 
   if (status) {
     status.textContent = '✓ Saved';

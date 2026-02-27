@@ -179,7 +179,97 @@ describe('AI verdict parsing', () => {
 });
 
 
+
+
 describe('Gemini Flash fallback from Gemini Nano mode', () => {
+  it('uses direct Gemini API in gemini-api provider mode', async () => {
+    const ctx = loadBackgroundContext({
+      aiConfig: { provider: 'gemini-api', geminiApiKey: 'direct-key' }
+    });
+
+    ctx.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        candidates: [{ content: { parts: [{ text: 'NO' }] } }]
+      })
+    });
+
+    const verdict = await ctx.analyzeWithAI('safe content');
+    expect(verdict).toBe('NO');
+    expect(ctx.fetch).toHaveBeenCalledTimes(1);
+    expect(String(ctx.fetch.mock.calls[0][0])).toContain('generativelanguage.googleapis.com');
+    expect(String(ctx.fetch.mock.calls[0][0])).not.toContain('localhost:5000');
+  });
+
+
+
+  it('retries with alternate Gemini model after 404 model-not-found', async () => {
+    const ctx = loadBackgroundContext({
+      aiConfig: { provider: 'gemini-api', geminiApiKey: 'direct-key' }
+    });
+
+    ctx.fetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: async () => JSON.stringify({
+          error: {
+            message: 'models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent'
+          }
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: 'NO' }] } }]
+        })
+      });
+
+    const verdict = await ctx.analyzeWithAI('safe content');
+    expect(verdict).toBe('NO');
+    expect(ctx.fetch).toHaveBeenCalledTimes(2);
+    expect(String(ctx.fetch.mock.calls[0][0])).toContain('gemini-1.5-flash');
+    expect(String(ctx.fetch.mock.calls[1][0])).toContain('gemini-1.5-flash-latest');
+  });
+
+  it('uses legacy dailyReportConfig extensionApiKey when aiConfig key is missing', async () => {
+    const ctx = loadBackgroundContext({
+      aiConfig: { provider: 'gemini-api', geminiApiKey: '' },
+      dailyReportConfig: { extensionApiKey: 'legacy-gemini-key' }
+    });
+
+    ctx.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        candidates: [{ content: { parts: [{ text: 'NO' }] } }]
+      })
+    });
+
+    const verdict = await ctx.analyzeWithAI('safe content');
+    expect(verdict).toBe('NO');
+    expect(ctx.fetch).toHaveBeenCalledTimes(1);
+    expect(String(ctx.fetch.mock.calls[0][0])).toContain('legacy-gemini-key');
+  });
+
+  it('uses hardcoded key when gemini-api provider has no configured key', async () => {
+    const ctx = loadBackgroundContext({
+      aiConfig: { provider: 'gemini-api', geminiApiKey: '' }
+    });
+
+    ctx.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        candidates: [{ content: { parts: [{ text: 'NO' }] } }]
+      })
+    });
+
+    const verdict = await ctx.analyzeWithAI('safe content');
+    expect(verdict).toBe('NO');
+    expect(ctx.fetch).toHaveBeenCalledTimes(1);
+    expect(String(ctx.fetch.mock.calls[0][0])).toContain('AIzaSyClwkuvHZU_IlwhqKSz-7AitJoVFtmaS3I');
+  });
+
   it('uses Gemini API when Nano is unavailable and API key exists', async () => {
     const ctx = loadBackgroundContext({
       aiConfig: { provider: 'gemini-nano', geminiApiKey: 'test-key' }
