@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PromptArmor</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      width: 300px;
+      padding: 20px;
+    }
+    
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #333;
+    }
+    
+    .logo {
+      font-size: 1.8rem;
+    }
+    
+    .title {
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+    
+    .status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 15px 0;
+      border-bottom: 1px solid #333;
+    }
+    
+    .status-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .status-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #22c55e;
+    }
+    
+    .status-indicator.off {
+      background: #666;
+    }
+    
+    .toggle {
+      position: relative;
+      width: 48px;
+      height: 26px;
+      background: #333;
+      border-radius: 13px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    
+    .toggle.on {
+      background: #22c55e;
+    }
+    
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.3s;
+    }
+    
+    .toggle.on::after {
+      transform: translateX(22px);
+    }
+    
+    .quick-score {
+      padding: 20px 0;
+      text-align: center;
+      border-bottom: 1px solid #333;
+    }
+    
+    .score-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    
+    .score-badge.safe {
+      background: rgba(34, 197, 94, 0.2);
+      color: #22c55e;
+    }
+    
+    .score-badge.caution {
+      background: rgba(245, 158, 11, 0.2);
+      color: #f59e0b;
+    }
+    
+    .score-badge.danger {
+      background: rgba(239, 68, 68, 0.2);
+      color: #ef4444;
+    }
+    
+    .score-badge.unknown {
+      background: rgba(100, 100, 100, 0.2);
+      color: #888;
+    }
+    
+    .actions {
+      padding-top: 15px;
+    }
+    
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 8px;
+    }
+    
+    .btn:last-child {
+      margin-bottom: 0;
+    }
+    
+    .btn-panel {
+      background: #3b82f6;
+      color: white;
+    }
+    
+    .btn-panel:hover {
+      background: #2563eb;
+    }
+    
+    .btn-rescan {
+      background: #252540;
+      color: #ccc;
+    }
+    
+    .btn-rescan:hover {
+      background: #333;
+    }
+    
+    /* ── Visit History ─────────────────────────────────── */
+    .history {
+      margin-top: 15px;
+      border-top: 1px solid #333;
+      padding-top: 12px;
+    }
+
+    .history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .history-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .history-clear {
+      font-size: 0.7rem;
+      color: #555;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .history-clear:hover { color: #ef4444; }
+
+    .history-list {
+      max-height: 160px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .history-list::-webkit-scrollbar { width: 4px; }
+    .history-list::-webkit-scrollbar-track { background: transparent; }
+    .history-list::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 6px;
+      border-radius: 6px;
+      background: #252535;
+    }
+
+    .history-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .history-dot.safe        { background: #22c55e; }
+    .history-dot.suspicious  { background: #ef4444; }
+    .history-dot.whitelisted { background: #3b82f6; }
+    .history-dot.paste       { background: #f59e0b; }
+    .history-dot.unknown     { background: #555; }
+
+    .history-url {
+      flex: 1;
+      font-size: 0.72rem;
+      color: #ccc;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .history-time {
+      font-size: 0.68rem;
+      color: #555;
+      flex-shrink: 0;
+    }
+
+    .history-empty {
+      font-size: 0.75rem;
+      color: #555;
+      text-align: center;
+      padding: 12px 0;
+    }
+
+    /* ── Device Status ──────────────────────────────────── */
+    .device-status {
+      margin-top: 15px;
+      border-top: 1px solid #333;
+      padding-top: 12px;
+    }
+
+    .device-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .device-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .device-chip {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    .device-chip.trusted  { background: rgba(59,130,246,0.2); color: #3b82f6; }
+    .device-chip.new      { background: rgba(245,158,11,0.2);  color: #f59e0b; }
+    .device-chip.unknown  { background: rgba(100,100,100,0.2); color: #888;    }
+
+    .device-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #252535;
+      border-radius: 6px;
+      padding: 6px 8px;
+    }
+
+    .device-icon { font-size: 1rem; flex-shrink: 0; }
+
+    .device-info { flex: 1; min-width: 0; }
+
+    .device-label {
+      font-size: 0.72rem;
+      color: #ccc;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .device-hash {
+      font-family: monospace;
+      font-size: 0.65rem;
+      color: #555;
+    }
+
+    .device-count {
+      font-size: 0.65rem;
+      color: #555;
+      flex-shrink: 0;
+    }
+
+    .device-forget {
+      font-size: 0.68rem;
+      color: #555;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      flex-shrink: 0;
+    }
+
+    .device-forget:hover { color: #ef4444; }
+
+    .footer {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #333;
+      text-align: center;
+      font-size: 0.75rem;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="logo">🛡️</span>
+    <span class="title">PromptArmor</span>
+  </div>
+  
+  <div class="status">
+    <div class="status-label">
+      <span class="status-indicator" id="statusIndicator"></span>
+      <span>Protection</span>
+    </div>
+    <div class="toggle on" id="toggle"></div>
+  </div>
+  
+  <div class="quick-score">
+    <div class="score-badge unknown" id="scoreBadge">
+      <span>Analyzing...</span>
+    </div>
+  </div>
+  
+  <div class="actions">
+    <button class="btn btn-panel" id="openPanelBtn">Open Side Panel</button>
+    <button class="btn btn-rescan" id="rescanBtn">Rescan Current Page</button>
+  </div>
+  
+  <!-- Visit History -->
+  <div class="history">
+    <div class="history-header">
+      <span class="history-title">Visit History</span>
+      <button class="history-clear" id="clearHistoryBtn">Clear</button>
+    </div>
+    <div class="history-list" id="historyList">
+      <div class="history-empty">No visits recorded yet</div>
+    </div>
+  </div>
+
+  <!-- Device Status -->
+  <div class="device-status" id="deviceStatusSection">
+    <div class="device-header">
+      <span class="device-title">Device</span>
+      <span class="device-chip unknown" id="deviceChip">Detecting…</span>
+    </div>
+    <div class="device-row">
+      <span class="device-icon">🖥️</span>
+      <div class="device-info">
+        <div class="device-label" id="deviceLabel">Checking device…</div>
+        <div class="device-hash" id="deviceHash"></div>
+      </div>
+      <span class="device-count" id="deviceCount"></span>
+      <button class="device-forget" id="forgetDeviceBtn" title="Forget this device" style="display:none">✕</button>
+    </div>
+  </div>
+
+  <div class="footer">
+    Protecting your AI interactions
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>

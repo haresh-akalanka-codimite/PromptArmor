@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "PromptArmor",
+  "version": "2.0.0",
+  "description": "Advanced AI security - Injection firewall, PII redaction, extension risk scoring",
+  "permissions": [
+    "scripting",
+    "storage",
+    "activeTab",
+    "tabs",
+    "declarativeNetRequest",
+    "sidePanel",
+    "management"
+  ],
+  "host_permissions": [
+  "http://localhost:11434/*"
+],
+  "background": {
+    "service_worker": "src/background/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>", "file:///*"],
+      "js": ["src/utils/deviceFingerprint.js", "src/content/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "side_panel": {
+    "default_path": "src/sidepanel/sidepanel.html"
+  },
+  "action": {
+    "default_popup": "src/popup/popup.html"
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ruleset_1",
+        "enabled": true,
+        "path": "src/rules/rules.json"
+      }
+    ]
+  }
+}

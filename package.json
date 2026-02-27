@@ -1,0 +1,15 @@
+{
+  "name": "promptarmor",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "test": "jest",
+    "e2e:local": "node test/e2e/run.js",
+    "build": "echo \"build step placeholder\"",
+    "build:zip": "zip -r dist/extension.zip . -x node_modules/* test/* .git/* dist/*"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0",
+    "jest-environment-jsdom": "^29.7.0"
+  }
+}

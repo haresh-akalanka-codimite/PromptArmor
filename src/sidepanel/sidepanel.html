@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PromptArmor</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#0d0d1a;--surface:#151525;--surface2:#1e1e35;--surface3:#26264a;
+      --border:#2a2a45;--text:#e2e2f0;--muted:#666688;
+      --blue:#3b82f6;--green:#22c55e;--yellow:#f59e0b;--orange:#f97316;--red:#ef4444;--purple:#a855f7;
+      --nav-w:64px;
+    }
+    html,body{height:100%;overflow:hidden}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+
+    /* ── Header ── */
+    .header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+    .header-logo{font-size:1.3rem}
+    .header-title{font-size:1rem;font-weight:700;letter-spacing:.5px}
+    .header-badge{margin-left:auto;font-size:.65rem;padding:2px 8px;border-radius:10px;background:rgba(59,130,246,.2);color:var(--blue);border:1px solid rgba(59,130,246,.3)}
+
+    /* ── Layout ── */
+    .app-body{display:flex;flex:1;overflow:hidden}
+
+    /* ── Nav sidebar ── */
+    nav{width:var(--nav-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:8px 0;flex-shrink:0}
+    .nav-item{display:flex;flex-direction:column;align-items:center;padding:10px 4px;cursor:pointer;border:none;background:none;color:var(--muted);font-size:.6rem;gap:4px;transition:all .2s;width:100%;border-left:2px solid transparent}
+    .nav-item:hover{color:var(--text);background:var(--surface2)}
+    .nav-item.active{color:var(--blue);border-left-color:var(--blue);background:rgba(59,130,246,.08)}
+    .nav-icon{font-size:1.3rem}
+
+    /* ── Content pane ── */
+    .content{flex:1;overflow-y:auto;padding:16px}
+    .view{display:none}
+    .view.active{display:block}
+
+    /* ── Common Components ── */
+    h2{font-size:.95rem;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px}
+    .card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+    .card-title{font-size:.85rem;font-weight:600}
+
+    .badge{display:inline-block;padding:3px 9px;border-radius:10px;font-size:.68rem;font-weight:600}
+    .badge-critical{background:#dc262633;color:#ef4444;border:1px solid #dc2626}
+    .badge-high{background:#c2410c33;color:#f97316;border:1px solid #c2410c}
+    .badge-medium{background:#d9770633;color:#f59e0b;border:1px solid #d97706}
+    .badge-low,.badge-safe{background:#15803d33;color:#22c55e;border:1px solid #15803d}
+    .badge-info{background:#1d4ed833;color:#60a5fa;border:1px solid #1d4ed8}
+
+    .btn{padding:10px 16px;border-radius:8px;border:none;font-size:.82rem;font-weight:500;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+    .btn-block{width:100%;justify-content:center}
+    .btn-primary{background:var(--blue);color:#fff}
+    .btn-primary:hover{background:#2563eb}
+    .btn-success{background:var(--green);color:#fff}
+    .btn-danger{background:var(--red);color:#fff}
+    .btn-ghost{background:var(--surface3);color:var(--text)}
+    .btn-ghost:hover{background:var(--border)}
+    .btn-sm{padding:6px 12px;font-size:.75rem}
+
+    .stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
+    .stat-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+    .stat{background:var(--surface2);border-radius:8px;padding:12px;text-align:center}
+    .stat-value{font-size:1.5rem;font-weight:700}
+    .stat-label{font-size:.65rem;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+
+    .list-item{background:var(--surface2);border-radius:8px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+    .list-item-left{flex:1;min-width:0}
+    .list-item-name{font-size:.82rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .list-item-sub{font-size:.7rem;color:var(--muted);margin-top:2px}
+
+    .threat-item{background:var(--surface2);border-radius:8px;padding:10px;margin-bottom:8px;border-left:3px solid var(--red)}
+    .threat-item.medium{border-left-color:var(--yellow)}
+    .threat-item.low{border-left-color:var(--green)}
+    .threat-class{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+    .threat-label{font-size:.8rem;font-weight:500;margin-top:2px}
+    .threat-sample{font-size:.72rem;font-family:monospace;color:var(--muted);margin-top:4px;word-break:break-all}
+
+    .toggle-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+    .toggle-row:last-child{border-bottom:none}
+    .toggle-label{font-size:.82rem}
+    .toggle-sub{font-size:.7rem;color:var(--muted)}
+    .toggle{width:40px;height:22px;background:var(--surface3);border-radius:11px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+    .toggle.on{background:var(--green)}
+    .toggle::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform .2s}
+    .toggle.on::after{transform:translateX(18px)}
+
+    .scroll-box{max-height:260px;overflow-y:auto}
+    .empty{text-align:center;padding:30px;color:var(--muted);font-size:.82rem}
+
+    /* ── Posture Score ── */
+    .posture-hero{text-align:center;padding:20px 0 14px}
+    .posture-ring{width:130px;height:130px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-direction:column;margin-bottom:8px;transition:all .4s}
+    .posture-score{font-size:2.8rem;font-weight:800;line-height:1}
+    .posture-grade{font-size:.7rem;letter-spacing:2px;font-weight:600;margin-top:4px;opacity:.8}
+    .posture-trend{font-size:.8rem;margin-top:6px}
+
+    .rec-item{background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:8px;border-left:3px solid var(--blue)}
+    .rec-item.critical{border-left-color:var(--red)}
+    .rec-item.high{border-left-color:var(--orange)}
+    .rec-item.medium{border-left-color:var(--yellow)}
+    .rec-title{font-size:.82rem;font-weight:600}
+    .rec-desc{font-size:.72rem;color:var(--muted);margin-top:4px}
+    .rec-actions{display:flex;gap:6px;margin-top:8px}
+
+    /* ── Simulation ── */
+    .scenario-card{background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:8px;cursor:pointer;transition:all .2s;border:2px solid transparent}
+    .scenario-card:hover{border-color:var(--border)}
+    .scenario-card.running{border-color:var(--blue);background:rgba(59,130,246,.05)}
+    .scenario-icon{font-size:1.5rem;margin-bottom:4px}
+    .scenario-name{font-size:.82rem;font-weight:600}
+    .scenario-desc{font-size:.7rem;color:var(--muted);margin-top:4px}
+
+    .sim-steps{margin-top:12px}
+    .sim-step{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:6px;margin-bottom:4px;font-size:.78rem;opacity:.4;transition:all .3s}
+    .sim-step.active{opacity:1;background:var(--surface3)}
+    .step-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}
+    .step-dot.threat{background:var(--red)}
+    .step-dot.detected{background:var(--yellow)}
+    .step-dot.blocked{background:var(--green)}
+    .step-dot.cep_action{background:var(--blue)}
+    .step-dot.resolved{background:var(--purple)}
+
+    .sim-outcome{border-radius:8px;padding:12px;margin-top:10px;font-size:.8rem}
+    .sim-outcome.blocked{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3)}
+    
+    /* ── Heatmap ── */
+    .heatmap-row{display:flex;align-items:center;gap:8px;padding:8px;background:var(--surface2);border-radius:6px;margin-bottom:6px}
+    .dept-name{font-size:.78rem;font-weight:500;width:90px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .risk-bar-track{flex:1;height:8px;background:var(--surface3);border-radius:4px;overflow:hidden}
+    .risk-bar-fill{height:100%;border-radius:4px;transition:width .6s}
+    .risk-score{font-size:.72rem;font-weight:600;width:36px;text-align:right;flex-shrink:0}
+
+    /* ── Forms (AI Settings) ── */
+    .form-group{margin-bottom:12px}
+    .form-label{display:block;font-size:.75rem;color:var(--muted);margin-bottom:5px}
+    .form-input,.form-select{width:100%;padding:9px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.82rem}
+    .form-input:focus,.form-select:focus{outline:none;border-color:var(--blue)}
+    .form-hint{font-size:.7rem;color:var(--muted);margin-top:4px}
+    .form-hint a{color:var(--blue)}
+    .status-ok{color:var(--green)}
+    .status-err{color:var(--red)}
+
+    .provider-card{background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:8px;cursor:pointer;border:2px solid transparent;transition:all .2s}
+    .provider-card:hover{border-color:var(--border)}
+    .provider-card.selected{border-color:var(--blue);background:rgba(59,130,246,.08)}
+    .provider-name{font-size:.82rem;font-weight:600}
+    .provider-desc{font-size:.7rem;color:var(--muted);margin-top:3px}
+    .provider-pill{font-size:.65rem;padding:2px 7px;border-radius:8px;display:inline-block;margin-top:5px}
+    .pill-ready{background:#15803d33;color:var(--green)}
+    .pill-setup{background:#d9770633;color:var(--yellow)}
+    .pill-off{background:#7f1d1d33;color:var(--red)}
+
+    /* ── Responsive scrollbar ── */
+    ::-webkit-scrollbar{width:4px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+  </style>
+</head>
+<body>
+<div class="header">
+  <span class="header-logo">🛡️</span>
+  <span class="header-title">PromptArmor</span>
+  <span class="header-badge" id="headerVersion">v2.0</span>
+</div>
+
+<div class="app-body">
+  <!-- ── Navigation ── -->
+  <nav>
+    <button class="nav-item active" data-view="posture">
+      <span class="nav-icon">📊</span>Posture
+    </button>
+    <button class="nav-item" data-view="extensions">
+      <span class="nav-icon">🧩</span>Ext
+    </button>
+    <button class="nav-item" data-view="threats">
+      <span class="nav-icon">🔥</span>Threats
+    </button>
+    <button class="nav-item" data-view="governance">
+      <span class="nav-icon">🏛️</span>Gov
+    </button>
+    <button class="nav-item" data-view="heatmap">
+      <span class="nav-icon">🗺️</span>Map
+    </button>
+    <button class="nav-item" data-view="simulator">
+      <span class="nav-icon">🎮</span>Sim
+    </button>
+    <button class="nav-item" data-view="settings">
+      <span class="nav-icon">⚙️</span>AI
+    </button>
+  </nav>
+
+  <!-- ── Content ── -->
+  <div class="content">
+
+    <!-- ══════════ POSTURE VIEW ══════════ -->
+    <div id="posture-view" class="view active">
+      <h2>📊 Security Posture Index</h2>
+
+      <div class="posture-hero">
+        <div class="posture-ring" id="postureRing">
+          <span class="posture-score" id="postureScore">—</span>
+          <span class="posture-grade" id="postureGrade">LOADING</span>
+        </div>
+        <div class="posture-trend" id="postureTrend"></div>
+      </div>
+
+      <div class="stat-grid-3">
+        <div class="stat">
+          <div class="stat-value" id="postureExts">—</div>
+          <div class="stat-label">Risky Ext</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="postureBlocked">—</div>
+          <div class="stat-label">Blocked</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="postureCEP">—</div>
+          <div class="stat-label">CEP</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Top Findings</span>
+        </div>
+        <div id="postureFindings" class="scroll-box">
+          <div class="empty">Running assessment…</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Recommendations</span>
+        </div>
+        <div id="postureRecs" class="scroll-box">
+          <div class="empty">No recommendations yet</div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-block" id="runPostureBtn">Run Assessment</button>
+    </div>
+
+    <!-- ══════════ EXTENSIONS VIEW ══════════ -->
+    <div id="extensions-view" class="view">
+      <h2>🧩 Extension Intelligence</h2>
+
+      <div class="stat-grid">
+        <div class="stat">
+          <div class="stat-value" id="extTotal">—</div>
+          <div class="stat-label">Installed</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="extRisky">—</div>
+          <div class="stat-label">High Risk</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Behavioral Analysis</span>
+        </div>
+        <div class="scroll-box" id="extList">
+          <div class="empty">Click scan to analyse extensions</div>
+        </div>
+      </div>
+
+      <div class="card" id="extDetailCard" style="display:none">
+        <div class="card-head">
+          <span class="card-title" id="extDetailName">Extension Detail</span>
+          <span class="badge" id="extDetailBadge"></span>
+        </div>
+        <div id="extDetailFlags"></div>
+        <div id="extDetailActions" style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+
+      <button class="btn btn-primary btn-block" id="scanExtBtn">Scan Extensions</button>
+    </div>
+
+    <!-- ══════════ THREATS VIEW ══════════ -->
+    <div id="threats-view" class="view">
+      <h2>🔥 Injection Shield</h2>
+
+      <div class="stat-grid">
+        <div class="stat">
+          <div class="stat-value" id="shieldBlocked">0</div>
+          <div class="stat-label">Blocked</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="shieldThreats">0</div>
+          <div class="stat-label">Threats Found</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Active Threats</span>
+          <span class="badge badge-info" id="shieldScanStatus">Scanning…</span>
+        </div>
+        <div class="scroll-box" id="shieldThreatList">
+          <div class="empty">No active threats detected</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Exposure Assessment</span>
+        </div>
+        <div id="shieldExposure">
+          <div class="empty">Awaiting scan…</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="toggle-row">
+          <div><div class="toggle-label">Hidden Content Scanner</div><div class="toggle-sub">Scan invisible DOM elements</div></div>
+          <div class="toggle on" id="hiddenScanToggle"></div>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">Firewall Active</div><div class="toggle-sub">Block injections in real-time</div></div>
+          <div class="toggle on" id="firewallToggle"></div>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">Auto-Sanitize</div><div class="toggle-sub">Rewrite prompts, preserve intent</div></div>
+          <div class="toggle on" id="sanitizeToggle"></div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-block" id="rescanPageBtn">Rescan Page</button>
+    </div>
+
+    <!-- ══════════ GOVERNANCE VIEW ══════════ -->
+    <div id="governance-view" class="view">
+      <h2>🏛️ AI Governance</h2>
+
+      <div class="stat-grid-3">
+        <div class="stat">
+          <div class="stat-value" id="govBlocked">0</div>
+          <div class="stat-label">Blocked</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="govRedacted">0</div>
+          <div class="stat-label">Redacted</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="govUnsanctioned">0</div>
+          <div class="stat-label">Shadow AI</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">AI Domain Activity</span>
+        </div>
+        <div class="scroll-box" id="govDomainList">
+          <div class="empty">No AI usage recorded yet</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">PII / Sensitive Data</span>
+        </div>
+        <div class="stat-grid" style="margin-bottom:8px">
+          <div class="stat">
+            <div class="stat-value" id="piiFound">0</div>
+            <div class="stat-label">PII Found</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="secretsFound">0</div>
+            <div class="stat-label">Secrets</div>
+          </div>
+        </div>
+        <div class="scroll-box" id="piiList">
+          <div class="empty">No PII detected on this page</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="toggle-row">
+          <div><div class="toggle-label">Auto-Redact PII</div><div class="toggle-sub">Remove sensitive data before AI sends</div></div>
+          <div class="toggle on" id="autoRedactToggle"></div>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">Block Unsanctioned AI</div><div class="toggle-sub">Enforce AI domain allowlist</div></div>
+          <div class="toggle on" id="blockUnsanctionedToggle"></div>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">DLP Alerts</div><div class="toggle-sub">Notify on sensitive submissions</div></div>
+          <div class="toggle on" id="dlpToggle"></div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-block" id="govScanBtn">Scan Current Page</button>
+    </div>
+
+    <!-- ══════════ HEATMAP VIEW ══════════ -->
+    <div id="heatmap-view" class="view">
+      <h2>🗺️ Departmental Risk Heatmap</h2>
+
+      <div class="stat-grid">
+        <div class="stat">
+          <div class="stat-value" id="heatmapOrgAvg">—</div>
+          <div class="stat-label">Org Avg Risk</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="heatmapHotDepts">—</div>
+          <div class="stat-label">Hot Depts</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Risk by Department</span>
+        </div>
+        <div id="heatmapChart">
+          <div class="empty">Click "Load Heatmap" to visualise risk</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Policy Recommendations</span>
+        </div>
+        <div class="scroll-box" id="policyRecList">
+          <div class="empty">Run heatmap first</div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-block" id="loadHeatmapBtn">Load Heatmap (Demo)</button>
+    </div>
+
+    <!-- ══════════ SIMULATOR VIEW ══════════ -->
+    <div id="simulator-view" class="view">
+      <h2>🎮 Threat Simulation</h2>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Choose Scenario</span>
+        </div>
+        <div id="scenarioList"></div>
+      </div>
+
+      <div id="simRunning" style="display:none">
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title" id="simTitle">Running simulation…</span>
+            <span class="badge badge-info" id="simStatus">Running</span>
+          </div>
+          <div id="simSteps" class="sim-steps"></div>
+        </div>
+        <div id="simOutcome" style="display:none" class="sim-outcome blocked">
+          <div style="font-weight:600;margin-bottom:6px">✅ With CEP + PromptArmor:</div>
+          <div id="simWithCEP"></div>
+          <hr style="margin:8px 0;border-color:rgba(255,255,255,.1)">
+          <div style="font-size:.72rem;color:var(--muted)">❌ Without CEP: <span id="simWithoutCEP"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ SETTINGS VIEW ══════════ -->
+    <div id="settings-view" class="view">
+      <h2>⚙️ AI Provider</h2>
+
+      <div class="card">
+        <div class="provider-card" data-provider="gemini-nano">
+          <div class="provider-name">🧠 Gemini Nano (Built-in)</div>
+          <div class="provider-desc">On-device Chrome AI. Free, private, offline.</div>
+          <span class="provider-pill" id="nanoStatus">Checking…</span>
+        </div>
+        <div class="provider-card" data-provider="gemini-api">
+          <div class="provider-name">☁️ Gemini API (Cloud)</div>
+          <div class="provider-desc">Google Cloud AI. More capable, needs API key.</div>
+          <span class="provider-pill" id="apiStatus">Needs key</span>
+        </div>
+        <div class="provider-card" data-provider="gemma-ollama">
+          <div class="provider-name">🖥️ Gemma via Ollama (Local)</div>
+          <div class="provider-desc">Run Gemma locally — full privacy.</div>
+          <span class="provider-pill" id="ollamaStatus">Checking…</span>
+        </div>
+      </div>
+
+      <div class="card" id="apiSettings" style="display:none">
+        <div class="card-head"><span class="card-title">Gemini API Key</span></div>
+        <div class="form-group">
+          <input type="password" class="form-input" id="geminiApiKey" placeholder="AIza…">
+          <div class="form-hint">Get free key at <a href="https://aistudio.google.com/apikey" target="_blank">AI Studio</a></div>
+        </div>
+        <button class="btn btn-primary btn-block" id="saveApiKey">Save & Verify</button>
+        <div id="apiKeyStatus" class="form-hint" style="margin-top:8px"></div>
+      </div>
+
+      <div class="card" id="ollamaSettings" style="display:none">
+        <div class="card-head"><span class="card-title">Ollama Settings</span></div>
+        <div class="form-group">
+          <label class="form-label">Endpoint</label>
+          <input type="text" class="form-input" id="ollamaEndpoint" value="http://localhost:11434">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Model</label>
+          <select class="form-select" id="gemmaModel">
+            <option value="gemma2:2b">gemma2:2b (Fast, 2B)</option>
+            <option value="gemma2:9b">gemma2:9b (Better, 9B)</option>
+            <option value="gemma:7b">gemma:7b (Original)</option>
+          </select>
+        </div>
+        <button class="btn btn-primary btn-block" id="saveOllama">Save & Test</button>
+        <div id="ollamaStatus2" class="form-hint" style="margin-top:8px"></div>
+        <div class="form-hint" style="margin-top:6px">Install model: <code style="color:var(--muted)">ollama pull gemma2:2b</code></div>
+      </div>
+
+      <div class="card">
+        <div class="toggle-row">
+          <div><div class="toggle-label">AI Analysis</div><div class="toggle-sub">Use AI for enhanced detection</div></div>
+          <div class="toggle on" id="aiToggle"></div>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">Detailed Reports</div><div class="toggle-sub">Full AI explanation on threats</div></div>
+          <div class="toggle" id="detailedToggle"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app-body -->
+
+<script src="sidepanel.js"></script>
+</body>
+</html>

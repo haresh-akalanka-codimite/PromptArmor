@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \":*)",
+      "Bash(node /c/test/PromptArmor/test-paste.js)",
+      "Bash(node /c/test/PromptArmor/test-sanitize.js)"
+    ]
+  }
+}

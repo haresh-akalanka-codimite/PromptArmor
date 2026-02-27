@@ -1,0 +1,57 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "block"
+    },
+    "condition": {
+      "regexFilter": ".*[?&](prompt|query|text|message|content)=.*(?:password|ssn|credit.?card|secret).*",
+      "resourceTypes": ["xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 1,
+    "action": {
+      "type": "block"
+    },
+    "condition": {
+      "regexFilter": ".*exfil.*|.*leak.*data.*|.*steal.*info.*",
+      "resourceTypes": ["xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 3,
+    "priority": 1,
+    "action": {
+      "type": "block"
+    },
+    "condition": {
+      "urlFilter": "*webhook.site*",
+      "resourceTypes": ["xmlhttprequest", "other", "image", "script"]
+    }
+  },
+  {
+    "id": 4,
+    "priority": 1,
+    "action": {
+      "type": "block"
+    },
+    "condition": {
+      "urlFilter": "*requestbin*",
+      "resourceTypes": ["xmlhttprequest", "other", "image", "script"]
+    }
+  },
+  {
+    "id": 5,
+    "priority": 1,
+    "action": {
+      "type": "block"
+    },
+    "condition": {
+      "urlFilter": "*ngrok.io*",
+      "resourceTypes": ["xmlhttprequest", "other"]
+    }
+  }
+]
