@@ -393,7 +393,6 @@ async function loadFsConfig() {
 
     document.getElementById('fsBackendUrl').value = cfg.backendUrl      || 'http://localhost:5000';
     document.getElementById('fsApiKey').value      = cfg.extensionApiKey || '';
-    document.getElementById('fsTenantId').value    = cfg.tenantId        || '';
     document.getElementById('fsPubKeyPem').value   = cfg.publicKeyPem    || '';
 
     const chip         = document.getElementById('fsChip');
@@ -408,7 +407,6 @@ async function loadFsConfig() {
 async function saveFsConfig() {
   const backendUrl      = document.getElementById('fsBackendUrl').value.trim() || 'http://localhost:5000';
   const extensionApiKey = document.getElementById('fsApiKey').value.trim();
-  const tenantId        = document.getElementById('fsTenantId').value.trim();
   const pubKeyPem       = document.getElementById('fsPubKeyPem').value.trim();
   const status          = document.getElementById('fsStatus');
 
@@ -428,7 +426,6 @@ async function saveFsConfig() {
     enabled:          true,
     backendUrl,
     extensionApiKey,
-    tenantId,
     publicKeyPem:     pubKeyPem,
     includeAllStorage: true
   };
@@ -546,15 +543,12 @@ async function downloadEventLog() {
     const events    = result.securityEvents    || [];
     const history   = result.visitHistory      || [];
     const fwStats   = result.firewallStats     || {};
-    const cfg       = result.dailyReportConfig || {};
-
     // Build a clean, portable export payload
     const payload = {
       exportedAt:    new Date().toISOString(),
       extensionVersion: chrome.runtime.getManifest().version,
       userEmail:     result.reportUserEmail  || '',
       deviceHash:    result.currentDeviceHash || '',
-      tenantId:      cfg.tenantId            || '',
       summary: {
         totalEvents:   events.length,
         totalVisits:   history.length,
