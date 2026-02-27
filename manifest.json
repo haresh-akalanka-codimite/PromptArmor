@@ -12,7 +12,9 @@
     "sidePanel",
     "management",
     "downloads",
-    "alarms"
+    "alarms",
+    "identity",
+    "identity.email"
   ],
   "host_permissions": [
     "http://localhost:11434/*",
