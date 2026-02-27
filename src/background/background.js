@@ -281,16 +281,32 @@ async function handleDownloadCreated(downloadItem) {
       reasons: assessment.reasons
     };
 
-    if (assessment.action === 'block') {
+    const cancelled = assessment.action === 'block';
+    let dlOrigin = '';
+    try { dlOrigin = new URL(payload.url).origin; } catch (_) {}
+
+    if (cancelled) {
       await chrome.downloads.cancel(downloadItem.id).catch(() => {});
       await recordThreat('risky_download_blocked', JSON.stringify(payload).slice(0, 300));
     } else {
       await recordThreat('risky_download_warn', JSON.stringify(payload).slice(0, 300));
     }
 
+    await recordSecurityEvent({
+      type:      'risky_download',
+      url:       payload.url,
+      origin:    dlOrigin,
+      filename:  payload.filename,
+      mime:      payload.mime,
+      danger:    payload.danger,
+      score:     payload.score,
+      risks:     payload.reasons,
+      cancelled
+    });
+
     chrome.runtime.sendMessage({
       type: 'PROMPTARMOR_UPDATE',
-      data: { verdict: 'DOWNLOAD_RISK', origin: new URL(payload.url).origin, downloadRisk: payload }
+      data: { verdict: 'DOWNLOAD_RISK', origin: dlOrigin, downloadRisk: payload }
     }).catch(() => {});
   } catch (error) {
     console.error('PromptArmor handleDownloadCreated error:', error);
@@ -416,6 +432,33 @@ async function recordThreat(category, sample) {
   await chrome.storage.local.set({ firewallStats });
 }
 
+// ── Security Event Log ────────────────────────────────────────────────────────
+// Detailed event trail: every injection, paste secret, download risk,
+// and user action (dismiss / trust) is stored here with URL + email context.
+const SECURITY_EVENTS_MAX = 500;
+
+async function recordSecurityEvent(event) {
+  try {
+    const stored = await chrome.storage.local.get([
+      'securityEvents', 'reportUserEmail', 'currentDeviceHash'
+    ]);
+    const events = stored.securityEvents || [];
+
+    events.unshift({
+      id:         Date.now().toString(36) + Math.random().toString(36).substring(2, 6),
+      timestamp:  Date.now(),
+      userEmail:  stored.reportUserEmail  || 'anonymous',
+      deviceHash: stored.currentDeviceHash || 'unknown',
+      ...event
+    });
+
+    if (events.length > SECURITY_EVENTS_MAX) events.length = SECURITY_EVENTS_MAX;
+    await chrome.storage.local.set({ securityEvents: events });
+  } catch (e) {
+    console.error('PromptArmor: recordSecurityEvent error', e);
+  }
+}
+
 // ── Visit History ─────────────────────────────────────────────────────────────
 // Records every URL scanned (capped at 200, deduplicates within 5 minutes).
 const HISTORY_MAX = 200;
@@ -476,6 +519,12 @@ async function handleScrape(message, sender) {
 
   if (verdict === 'YES' && tabId) {
     await recordThreat('injection', text.substring(0, 100));
+    await recordSecurityEvent({
+      type:     'injection_detected',
+      url:      url      || '',
+      origin:   origin   || '',
+      evidence: text.substring(0, 300)
+    });
     chrome.tabs.sendMessage(tabId, {
       type: 'PROMPTARMOR_BLOCK',
       evidence: text.substring(0, 200)
@@ -546,7 +595,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'PROMPTARMOR_PASTE_WARN') {
-    const { detections = [], origin = '' } = message;
+    const { detections = [], url = '', origin = '' } = message;
     firewallStats.blocked++;
     firewallStats.threats.unshift({
       category: 'secret_paste',
@@ -555,6 +604,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     if (firewallStats.threats.length > 50) firewallStats.threats.pop();
     chrome.storage.local.set({ firewallStats }).catch(() => {});
+
+    // Record detailed event with URL + detected secret types
+    recordSecurityEvent({
+      type:       'paste_secret',
+      url,
+      origin,
+      detections
+    }).catch(() => {});
+
     chrome.runtime.sendMessage({
       type: 'PROMPTARMOR_UPDATE',
       data: { verdict: 'PASTE_WARN', origin, detections }
@@ -693,6 +751,61 @@ chrome.downloads.onCreated.addListener(downloadItem => {
   handleDownloadCreated(downloadItem).catch(err =>
     console.error('PromptArmor download listener error:', err)
   );
+});
+
+// ── onChanged: catch Chrome's async Safe Browsing danger verdict ───────────
+// Chrome evaluates downloads AFTER onCreated fires — the danger field may
+// arrive seconds later via onChanged. This catches malicious/uncommon verdicts
+// that weren't present at download-start time.
+chrome.downloads.onChanged.addListener(async (delta) => {
+  try {
+    if (!delta.danger?.current) return;
+    const danger = delta.danger.current;
+    // 'safe' and 'accepted' (user acknowledged) need no action
+    if (danger === 'safe' || danger === 'accepted') return;
+
+    // Fetch the full download item for filename / URL / MIME
+    const [item] = await chrome.downloads.search({ id: delta.id });
+    if (!item) return;
+
+    // Re-assess with the new danger value
+    const assessment = assessDownloadRisk({ ...item, danger });
+    if (assessment.action === 'allow') return;
+
+    let dlOrigin = '';
+    try { dlOrigin = new URL(item.finalUrl || item.url).origin; } catch (_) {}
+
+    // Cancel if Chrome flagged it as outright dangerous
+    if (assessment.action === 'block' && item.state === 'in_progress') {
+      await chrome.downloads.cancel(item.id).catch(() => {});
+    }
+
+    const filename = item.filename || item.url || 'unknown';
+
+    await recordThreat(
+      'risky_download_safe_browsing',
+      `${filename} [danger=${danger}]`.slice(0, 300)
+    );
+    await recordSecurityEvent({
+      type:      'risky_download',
+      url:       item.finalUrl || item.url || '',
+      origin:    dlOrigin,
+      filename,
+      mime:      item.mime   || 'unknown',
+      danger,
+      score:     assessment.score,
+      risks:     assessment.reasons,
+      cancelled: assessment.action === 'block',
+      source:    'safe_browsing_verdict'        // distinguishes from onCreated path
+    });
+
+    chrome.runtime.sendMessage({
+      type: 'PROMPTARMOR_UPDATE',
+      data: { verdict: 'DOWNLOAD_RISK', origin: dlOrigin, danger }
+    }).catch(() => {});
+  } catch (err) {
+    console.error('PromptArmor download onChanged error:', err);
+  }
 });
 
 chrome.runtime.onInstalled.addListener(() => {
