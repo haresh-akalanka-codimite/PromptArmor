@@ -383,36 +383,6 @@ async function loadAIConfig() {
   };
 }
 
-function normalizeSecret(value) {
-  const trimmed = String(value || '').trim();
-  if (!trimmed) return '';
-
-  // Users sometimes paste values wrapped in quotes or prefixed with Bearer.
-  const unquoted = trimmed.replace(/^['"]+|['"]+$/g, '');
-  return unquoted.replace(/^Bearer\s+/i, '').trim();
-}
-
-async function loadBackendAnalyzeConfig() {
-  const stored = await chrome.storage.local.get(['dailyReportConfig', 'aiConfig']);
-  const reportCfg = stored.dailyReportConfig || {};
-  const aiCfg = stored.aiConfig || {};
-
-  // Keep compatibility with older installs where these values may have been
-  // saved in aiConfig instead of dailyReportConfig.
-  const backendUrl = String(
-    reportCfg.backendUrl || aiCfg.backendUrl || ''
-  ).trim();
-
-  const extensionApiKey = normalizeSecret(
-    reportCfg.extensionApiKey || aiCfg.extensionApiKey || ''
-  );
-
-  return {
-    backendUrl,
-    extensionApiKey
-  };
-}
-
 function parseBinaryVerdict(raw, textForFallback = '') {
   const normalized = String(raw || '').trim().toUpperCase();
   if (!normalized) return 'NO';
@@ -426,41 +396,8 @@ function parseBinaryVerdict(raw, textForFallback = '') {
   return 'NO';
 }
 
-/**
- * Call the PromptArmor backend /analyze endpoint.
- * The Gemini API key lives exclusively on the server — never in the extension.
- *
- * @param {string} text            Page text to analyze
- * @param {string} backendUrl      e.g. "http://localhost:5000"
- * @param {string} extensionApiKey Optional x-extension-api-key header value
- * @returns {Promise<'YES'|'NO'>}
- */
-async function analyzeViaBackend(text, backendUrl, extensionApiKey) {
-  const url     = backendUrl.replace(/\/+$/, '') + '/analyze';
-  const headers = { 'Content-Type': 'application/json' };
-  const apiKey = normalizeSecret(extensionApiKey);
-  if (apiKey) headers['x-extension-api-key'] = apiKey;
-
-  const response = await fetch(url, {
-    method:  'POST',
-    headers,
-    body:    JSON.stringify({ text: text.substring(0, 10000) })
-  });
-
-  if (!response.ok) {
-    const detail = await response.json().catch(() => ({}));
-    throw new Error(`Backend /analyze ${response.status}: ${detail.error || 'unknown'}`);
-  }
-
-  const data = await response.json();
-  // Server returns { verdict: 'YES'|'NO', reason: '...' }
-  if (data.verdict === 'YES' || data.verdict === 'NO') return data.verdict;
-
-  // Older server versions returned { result: 'VERDICT: YES\n...' } — handle gracefully
-  return parseBinaryVerdict(data.result || '', text);
-}
-
 async function analyzeWithGemmaOllama(text, endpoint, model) {
+
   const prompt = SECURITY_PROMPT.replace('{TEXT}', text.substring(0, 5000));
   const response = await fetch(`${endpoint}/api/generate`, {
     method: 'POST',
@@ -515,23 +452,8 @@ async function analyzeWithAI(text) {
 
   try {
     switch (config.provider) {
-      case AI_PROVIDERS.GEMINI_API: {
-        // API key lives exclusively on the backend server — read its URL from
-        // dailyReportConfig (the same config used by the report pipeline).
-        const backendCfg = await loadBackendAnalyzeConfig();
-        const backendUrl = backendCfg.backendUrl || 'http://localhost:5000';
-        const extApiKey  = backendCfg.extensionApiKey;
-        try {
-          return await analyzeViaBackend(text, backendUrl, extApiKey);
-        } catch (backendError) {
-          // Keep backward compatibility with existing sidepanel settings where
-          // users configured a direct Gemini API key in aiConfig.
-          if (config.geminiApiKey) {
-            return await analyzeWithGeminiApiDirect(text, config.geminiApiKey);
-          }
-          throw backendError;
-        }
-      }
+      case AI_PROVIDERS.GEMINI_API:
+        return await analyzeWithGeminiApiDirect(text, config.geminiApiKey);
       case AI_PROVIDERS.GEMMA_OLLAMA:
         return await analyzeWithGemmaOllama(
           text,
@@ -547,22 +469,8 @@ async function analyzeWithAI(text) {
           return parseBinaryVerdict(response, text);
         }
 
-        // On-device Nano unavailable — try the backend server as a fallback if
-        // it is already configured (i.e. dailyReportConfig.backendUrl is set).
-        {
-          const backendCfg = await loadBackendAnalyzeConfig();
-          const backendUrl = backendCfg.backendUrl;
-          if (backendUrl) {
-            return await analyzeViaBackend(
-              text,
-              backendUrl,
-              backendCfg.extensionApiKey
-            );
-          }
-
-          if (config.geminiApiKey) {
-            return await analyzeWithGeminiApiDirect(text, config.geminiApiKey);
-          }
+        if (config.geminiApiKey) {
+          return await analyzeWithGeminiApiDirect(text, config.geminiApiKey);
         }
         break;
     }
