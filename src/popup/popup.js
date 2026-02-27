@@ -536,6 +536,56 @@ async function runReport() {
   }
 }
 
+async function downloadEventLog() {
+  try {
+    const result = await chrome.storage.local.get([
+      'securityEvents', 'visitHistory', 'reportUserEmail',
+      'currentDeviceHash', 'registeredDevices', 'firewallStats', 'dailyReportConfig'
+    ]);
+
+    const events    = result.securityEvents    || [];
+    const history   = result.visitHistory      || [];
+    const fwStats   = result.firewallStats     || {};
+    const cfg       = result.dailyReportConfig || {};
+
+    // Build a clean, portable export payload
+    const payload = {
+      exportedAt:    new Date().toISOString(),
+      extensionVersion: chrome.runtime.getManifest().version,
+      userEmail:     result.reportUserEmail  || '',
+      deviceHash:    result.currentDeviceHash || '',
+      tenantId:      cfg.tenantId            || '',
+      summary: {
+        totalEvents:   events.length,
+        totalVisits:   history.length,
+        injections:    events.filter(e => e.type === 'injection').length,
+        pasteWarnings: events.filter(e => e.type === 'paste_secret').length,
+        riskyDownloads:events.filter(e => e.type === 'risky_download').length,
+        userActions:   events.filter(e => e.type === 'user_action').length,
+      },
+      securityEvents: events,
+      visitHistory:   history,
+      firewallStats:  fwStats,
+    };
+
+    const blob  = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url   = URL.createObjectURL(blob);
+    const date  = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const a     = document.createElement('a');
+    a.href      = url;
+    a.download  = `promptarmor-report-${date}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    setReportStatus(`✅ Downloaded promptarmor-report-${date}.json (${events.length} events)`, 'ok');
+    setTimeout(() => { document.getElementById('reportStatus').className = 'report-status'; }, 3000);
+  } catch (e) {
+    setReportStatus('❌ Download failed: ' + e.message, 'error');
+  }
+}
+
 async function clearEventLog() {
   if (!confirm('Clear the local security event log? (This does not affect uploaded reports.)')) return;
   await chrome.storage.local.remove(['securityEvents']);
@@ -569,6 +619,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Report section
   document.getElementById('reportEmailSave').addEventListener('click', saveReportEmail);
   document.getElementById('reportRunBtn').addEventListener('click', runReport);
+  document.getElementById('downloadJsonBtn').addEventListener('click', downloadEventLog);
   document.getElementById('reportClearEventsBtn').addEventListener('click', clearEventLog);
 
   // Firestore config panel

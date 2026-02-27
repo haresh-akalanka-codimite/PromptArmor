@@ -88,6 +88,6 @@ Behavior:
 - Uploads encrypted payload directly to Firestore collection documents so only your dashboard backend can decrypt with private key.
 
 
-## Report backend (Firestore + GCS)
+## Report backend (Firestore-only)
 
-A separate production-style Node/Express backend is available at `backend/report-server` for file uploads, Firestore metadata, and signed URL retrieval. See `backend/report-server/README.md`.
+A separate Node/Express backend is available at `backend/report-server` for Firestore-based encrypted report ingestion and retrieval. See `backend/report-server/README.md`.

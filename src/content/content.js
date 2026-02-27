@@ -134,7 +134,7 @@
       </style>
       <div id="promptarmor-dialog">
         <h2>⚠️ High Risk Detected</h2>
-        <p>This page contains content that may attempt to manipulate AI behavior or steal your data.</p>
+        <p>This page contains content that may contains prompt injections and may attempt to manipulate AI behavior or steal your data.</p>
         <div id="promptarmor-evidence">${evidence || 'Suspicious content detected'}</div>
         <div id="promptarmor-buttons">
           <button id="promptarmor-dismiss">Dismiss Warning</button>
@@ -254,21 +254,34 @@
   // chat interfaces (ChatGPT, Claude, Gemini, social media, etc.)
 
   const PASTE_SECRET_PATTERNS = [
-    { name: 'Private Key',       re: /-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----/ },
-    { name: 'AWS Access Key',    re: /\b(AKIA|ABIA|ACCA|ASIA)[0-9A-Z]{16}\b/ },
-    { name: 'GitHub Token',      re: /\b(ghp_|github_pat_)[a-zA-Z0-9_]{20,}\b/ },
-    { name: 'Slack Token',       re: /\bxox[baprs]-[0-9]{10,13}-[0-9]{10,13}-[a-zA-Z0-9]{24}\b/ },
-    { name: 'JWT Token',         re: /\beyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/ },
-    { name: 'Bearer Token',      re: /\bBearer\s+[a-zA-Z0-9_\-]{20,}\b/ },
-    { name: 'Password Field',    re: /\b(password|passwd|pwd)\s*[=:]\s*\S{6,}/i },
-    { name: 'API Key',           re: /\b(api[_-]?key|apikey|api[_-]?secret)\s*[=:]\s*['"]?[a-zA-Z0-9_\-]{20,}/i },
-    { name: 'Connection String', re: /\b(mongodb|postgresql|mysql|redis):\/\/[^\s'"]+/ }
+    // PEM private key — real newlines or JSON \n-escaped
+    { name: 'Private Key',
+      re: /-----BEGIN\s+(?:RSA\s+|EC\s+)?PRIVATE\s+KEY-----/ },
+    // Service-account / Firebase JSON
+    { name: 'Service Account JSON',
+      re: /"type"\s*:\s*"service_account"/ },
+    { name: 'AWS Access Key',
+      re: /(AKIA|ABIA|ACCA|ASIA)[0-9A-Z]{16}/ },
+    { name: 'GitHub Token',
+      re: /(?:ghp_|github_pat_)[a-zA-Z0-9_]{20,}/ },
+    { name: 'Slack Token',
+      re: /xox[baprs]-[0-9]{10,13}-[0-9]{10,13}-[a-zA-Z0-9]{24}/ },
+    { name: 'JWT Token',
+      re: /eyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/ },
+    { name: 'Bearer Token',
+      re: /Bearer\s+[a-zA-Z0-9_\-]{20,}/ },
+    { name: 'Password Field',
+      re: /(?:password|passwd|pwd)\s*[=:]\s*\S{4,}/i },
+    { name: 'API Key',
+      re: /(?:api[_-]?key|apikey|api[_-]?secret)\s*[=:"]+\s*['"]?[a-zA-Z0-9_\-]{16,}/i },
+    { name: 'Connection String',
+      re: /(?:mongodb|postgresql|mysql|redis):\/\/[^\s'"]+/ }
   ];
 
-  // No \b word boundaries — underscores are \w so \bPRIVATE\b would NOT match
-  // GOOGLE_PRIVATE_KEY. Substring match instead.
-  const ENV_SENSITIVE_KEYS = /(SECRET|PASSWORD|TOKEN|PASS|PRIVATE|CREDENTIAL|DATABASE|APIKEY|AUTH|OAUTH|STRIPE|TWILIO|SENDGRID|FIREBASE|SUPABASE)/i;
-  const ENV_LINE_RE = /^[A-Z_][A-Z0-9_]*\s*=\s*.+$/gm;
+  // Sensitive keyword matcher — no word boundaries (underscores count as \w).
+  const ENV_SENSITIVE_KEYS = /(SECRET|PASSWORD|TOKEN|PASS|PRIVATE|CREDENTIAL|DATABASE|APIKEY|AUTH|OAUTH|STRIPE|TWILIO|SENDGRID|FIREBASE|SUPABASE|ENCRYPTION|SIGNING)/i;
+  // Matches both UPPER_CASE=value and lower_case=value .env lines
+  const ENV_LINE_RE = /^[A-Za-z_][A-Za-z0-9_]*\s*=\s*.+$/gm;
 
   function detectSecretsInPaste(text) {
     if (!text || text.length < 8) return [];
@@ -278,7 +291,9 @@
     }
     const envLines = text.match(ENV_LINE_RE) || [];
     const hasSensitiveKey = envLines.some(line => ENV_SENSITIVE_KEYS.test(line.split('=')[0]));
-    if (hasSensitiveKey || envLines.length >= 4) found.push('.env / Config File');
+    if (hasSensitiveKey || envLines.length >= 4) {
+      if (!found.includes('.env / Config File')) found.push('.env / Config File');
+    }
     return found;
   }
 
@@ -287,72 +302,88 @@
   function sanitizePastedText(text) {
     let r = text;
 
-    // Full PEM block (RSA or EC private key)
+    // Full PEM block (RSA, EC, or plain PRIVATE KEY — also matches JSON \n-escaped form)
     r = r.replace(
       /-----BEGIN\s+(?:RSA\s+|EC\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(?:RSA\s+|EC\s+)?PRIVATE\s+KEY-----/g,
       '[PRIVATE_KEY_REDACTED]'
     );
+    // PEM block when embedded in JSON strings (literal \n escapes instead of real newlines)
+    r = r.replace(
+      /-----BEGIN\s+(?:RSA\s+|EC\s+)?PRIVATE\s+KEY-----(?:\\n|\\r\\n|[^-])*-----END\s+(?:RSA\s+|EC\s+)?PRIVATE\s+KEY-----/g,
+      '[PRIVATE_KEY_REDACTED]'
+    );
     // AWS key ID
-    r = r.replace(/\b(AKIA|ABIA|ACCA|ASIA)[0-9A-Z]{16}\b/g, '[AWS_KEY_REDACTED]');
+    r = r.replace(/(AKIA|ABIA|ACCA|ASIA)[0-9A-Z]{16}/g, '[AWS_KEY_REDACTED]');
     // GitHub token
-    r = r.replace(/\b(?:ghp_|github_pat_)[a-zA-Z0-9_]{20,}\b/g, '[GITHUB_TOKEN_REDACTED]');
+    r = r.replace(/(?:ghp_|github_pat_)[a-zA-Z0-9_]{20,}/g, '[GITHUB_TOKEN_REDACTED]');
     // Slack token
-    r = r.replace(/\bxox[baprs]-[0-9]{10,13}-[0-9]{10,13}-[a-zA-Z0-9]{24}\b/g, '[SLACK_TOKEN_REDACTED]');
+    r = r.replace(/xox[baprs]-[0-9]{10,13}-[0-9]{10,13}-[a-zA-Z0-9]{24}/g, '[SLACK_TOKEN_REDACTED]');
     // JWT
-    r = r.replace(/\beyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g, '[JWT_REDACTED]');
+    r = r.replace(/eyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g, '[JWT_REDACTED]');
     // Bearer — keep prefix, redact value
-    r = r.replace(/(\bBearer\s+)[a-zA-Z0-9_\-]{20,}\b/g, '$1[TOKEN_REDACTED]');
-    // Password field — keep key name, redact value
-    r = r.replace(/(\b(?:password|passwd|pwd)\s*[=:]\s*)\S{6,}/gi, '$1[PASSWORD_REDACTED]');
+    r = r.replace(/(Bearer\s+)[a-zA-Z0-9_\-]{20,}/g, '$1[TOKEN_REDACTED]');
+    // Password field (KEY=value or KEY: value or "key": "value") — keep key, redact value
+    r = r.replace(/((?:password|passwd|pwd)\s*(?:[=:]\s*|":\s*"))\S{4,}/gi, '$1[PASSWORD_REDACTED]');
     // API key — keep key name, redact value
-    r = r.replace(/(\b(?:api[_-]?key|apikey|api[_-]?secret)\s*[=:]\s*['"]?)[a-zA-Z0-9_\-]{20,}/gi, '$1[API_KEY_REDACTED]');
+    r = r.replace(/((?:api[_-]?key|apikey|api[_-]?secret)\s*(?:[=:]\s*|":\s*")['"]?)[a-zA-Z0-9_\-]{16,}/gi, '$1[API_KEY_REDACTED]');
     // Connection string — keep protocol, redact credentials/host
-    r = r.replace(/\b((?:mongodb|postgresql|mysql|redis):\/\/)[^\s'"]+/gi, '$1[CONNECTION_REDACTED]');
+    r = r.replace(/((?:mongodb|postgresql|mysql|redis):\/\/)[^\s'"]+/gi, '$1[CONNECTION_REDACTED]');
 
-    // .env lines: for each KEY=value line, if key name contains a sensitive keyword,
-    // keep the key name but replace the value with [REDACTED]
-    r = r.replace(/^([A-Z_][A-Z0-9_]*\s*=\s*)(.+)$/gm, (match, keyPart, _value) => {
+    // Service-account / Firebase JSON: redact the value of known sensitive JSON keys
+    // Matches: "private_key": "...", "client_email": "...", "client_id": "...", etc.
+    r = r.replace(
+      /("(?:private_key|private_key_id|client_secret|client_id|auth_token|refresh_token|access_token)"\s*:\s*")[^"]+(")/gi,
+      '$1[REDACTED]$2'
+    );
+
+    // .env lines — both UPPER_CASE and lower_case key names
+    // For each KEY=value or KEY="value" line, redact value when key contains a sensitive keyword
+    r = r.replace(/^([A-Za-z_][A-Za-z0-9_]*\s*=\s*)(.+)$/gm, (match, keyPart, value) => {
       const keyName = keyPart.split('=')[0].trim();
-      return ENV_SENSITIVE_KEYS.test(keyName) ? keyPart + '[REDACTED]' : match;
+      if (!ENV_SENSITIVE_KEYS.test(keyName)) return match;
+      // Strip optional surrounding quotes from value before redacting
+      return keyPart + '[REDACTED]';
     });
 
     return r;
   }
 
-  // Write sanitized text back into a contenteditable or input/textarea element.
-  // Restores the pre-paste state first, then inserts the new text so the result
-  // is: (content before paste) + (sanitized clipboard text).
-  function applyToElement(el, sanitizedText) {
-    if (el.isContentEditable) {
-      // Restore pre-paste HTML so we don't double-apply
-      el.innerHTML = el._paPreHTML || '';
+  // Insert text into a focused editable element at the current cursor position.
+  // Called after event.preventDefault() blocked the original paste, so the
+  // clipboard content never touched the editor DOM.
+  function reinsertText(el, text) {
+    try {
       el.focus();
-      // Position cursor at end, then insert via execCommand (preserves undo stack)
-      const range = document.createRange();
-      range.selectNodeContents(el);
-      range.collapse(false);
-      const sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(range);
-      if (!document.execCommand('insertText', false, sanitizedText)) {
-        // Fallback for editors that block execCommand
-        el.textContent = (el.textContent || '') + sanitizedText;
-        el.dispatchEvent(new InputEvent('input', { bubbles: true, data: sanitizedText }));
+      if (el.isContentEditable) {
+        // execCommand works with ProseMirror, CodeMirror, Quill, etc.
+        if (!document.execCommand('insertText', false, text)) {
+          // Fallback: insert at the current Selection range
+          const sel = window.getSelection();
+          if (sel && sel.rangeCount > 0) {
+            const range = sel.getRangeAt(0);
+            range.deleteContents();
+            range.insertNode(document.createTextNode(text));
+            range.collapse(false);
+            sel.removeAllRanges();
+            sel.addRange(range);
+          } else {
+            el.textContent += text;
+          }
+          el.dispatchEvent(new InputEvent('input', {
+            bubbles: true, data: text, inputType: 'insertText'
+          }));
+        }
+      } else {
+        // <textarea> or <input>: insert at the cursor position
+        const start = el.selectionStart != null ? el.selectionStart : el.value.length;
+        const end   = el.selectionEnd   != null ? el.selectionEnd   : el.value.length;
+        el.value = el.value.slice(0, start) + text + el.value.slice(end);
+        el.selectionStart = el.selectionEnd = start + text.length;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
       }
-    } else {
-      el.value = (el._paPrePasteValue || '') + sanitizedText;
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-  }
-
-  // Restore element to its state before the paste happened.
-  function clearPaste(el) {
-    if (el.isContentEditable) {
-      el.innerHTML = el._paPreHTML || '';
-      el.dispatchEvent(new InputEvent('input', { bubbles: true }));
-    } else {
-      el.value = el._paPrePasteValue || '';
-      el.dispatchEvent(new Event('input', { bubbles: true }));
+    } catch (e) {
+      // Last-resort: just append
+      try { el.textContent += text; } catch (_) {}
     }
   }
 
@@ -366,20 +397,20 @@
         #promptarmor-paste-toast {
           position: fixed; top: 16px; right: 16px; z-index: 2147483647;
           background: #1f2937; border: 2px solid #ef4444; border-radius: 12px;
-          padding: 16px 20px; max-width: 380px;
+          padding: 16px 20px; max-width: 400px;
           box-shadow: 0 8px 32px rgba(0,0,0,0.5);
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           animation: pa-slidein 0.25s ease;
         }
         @keyframes pa-slidein {
-          from { transform: translateX(400px); opacity: 0; }
+          from { transform: translateX(420px); opacity: 0; }
           to   { transform: translateX(0);     opacity: 1; }
         }
         #promptarmor-paste-toast .pa-title {
           color: #ef4444; font-weight: 700; font-size: 14px; margin-bottom: 6px;
         }
         #promptarmor-paste-toast .pa-body {
-          color: #d1d5db; font-size: 13px; margin-bottom: 10px; line-height: 1.4;
+          color: #d1d5db; font-size: 12px; margin-bottom: 10px; line-height: 1.5;
         }
         #promptarmor-paste-toast .pa-tags {
           display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
@@ -390,36 +421,42 @@
         }
         #promptarmor-paste-toast .pa-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         #promptarmor-paste-toast button {
-          padding: 6px 14px; border-radius: 6px; border: none;
+          padding: 7px 14px; border-radius: 6px; border: none;
           font-size: 12px; font-weight: 600; cursor: pointer;
         }
         #pa-paste-sanitize { background: #f59e0b; color: #000; }
         #pa-paste-clear    { background: #ef4444; color: #fff; }
-        #pa-paste-dismiss  { background: #374151; color: #d1d5db; }
+        #pa-paste-allow    { background: #374151; color: #d1d5db; }
       </style>
-      <div class="pa-title">🔐 PromptArmor: Secret Detected in Paste</div>
-      <div class="pa-body">Sensitive data detected. Sanitize replaces secrets with placeholders; Clear removes the paste entirely.</div>
+      <div class="pa-title">🔐 PromptArmor: Secret Detected — Paste Blocked</div>
+      <div class="pa-body">
+        The paste was <strong style="color:#ef4444">blocked</strong> before it reached the editor.
+        Choose how to proceed:
+      </div>
       <div class="pa-tags">${detections.map(d => `<span class="pa-tag">${d}</span>`).join('')}</div>
       <div class="pa-actions">
-        <button id="pa-paste-sanitize">Sanitize</button>
-        <button id="pa-paste-clear">Clear Paste</button>
-        <button id="pa-paste-dismiss">Dismiss</button>
+        <button id="pa-paste-sanitize">Sanitize &amp; Insert</button>
+        <button id="pa-paste-clear">Discard</button>
+        <button id="pa-paste-allow">Allow Anyway</button>
       </div>`;
 
     document.documentElement.appendChild(toast);
-    const autoDismiss = setTimeout(() => toast.remove(), 15000);
+    const autoDismiss = setTimeout(() => toast.remove(), 20000);
     const dismiss = () => { clearTimeout(autoDismiss); toast.remove(); };
 
-    document.getElementById('pa-paste-dismiss').addEventListener('click', dismiss);
+    // "Discard" — paste was already blocked; do nothing, just close
+    document.getElementById('pa-paste-clear').addEventListener('click', dismiss);
 
-    document.getElementById('pa-paste-clear').addEventListener('click', () => {
-      if (targetElement) clearPaste(targetElement);
+    // "Allow Anyway" — re-insert the original unmodified text
+    document.getElementById('pa-paste-allow').addEventListener('click', () => {
+      if (targetElement && pastedText) reinsertText(targetElement, pastedText);
       dismiss();
     });
 
+    // "Sanitize & Insert" — re-insert with secrets redacted
     document.getElementById('pa-paste-sanitize').addEventListener('click', () => {
       if (targetElement && pastedText) {
-        applyToElement(targetElement, sanitizePastedText(pastedText));
+        reinsertText(targetElement, sanitizePastedText(pastedText));
       }
       dismiss();
     });
@@ -439,15 +476,15 @@
     const text = event.clipboardData?.getData('text') || '';
     if (!text || text.length < 8) return;
 
-    // Snapshot pre-paste state — used by clearPaste() and applyToElement()
-    if (target.isContentEditable) {
-      target._paPreHTML = target.innerHTML;
-    } else {
-      target._paPrePasteValue = target.value;
-    }
-
     const detections = detectSecretsInPaste(text);
     if (detections.length === 0) return;
+
+    // ── Block the paste BEFORE it touches the editor DOM ──────────────────────
+    // This is the critical fix: by preventing default here (capture phase,
+    // before any site handler), the clipboard content never lands in the input.
+    // "Clear/Discard" then requires no undo at all — the secret was never there.
+    event.preventDefault();
+    event.stopPropagation();
 
     showPasteWarningToast(detections, target, text);
     safeSendMessage({
@@ -456,7 +493,7 @@
       url: window.location.href,
       origin: window.location.origin
     });
-  }, true); // capture phase — runs before site handlers
+  }, true); // capture phase — runs before ALL site handlers
 
   // ── Device Fingerprinting ─────────────────────────────────────────────────
   // generateFingerprint() is defined in deviceFingerprint.js (injected before
