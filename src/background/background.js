@@ -383,6 +383,36 @@ async function loadAIConfig() {
   };
 }
 
+function normalizeSecret(value) {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return '';
+
+  // Users sometimes paste values wrapped in quotes or prefixed with Bearer.
+  const unquoted = trimmed.replace(/^['"]+|['"]+$/g, '');
+  return unquoted.replace(/^Bearer\s+/i, '').trim();
+}
+
+async function loadBackendAnalyzeConfig() {
+  const stored = await chrome.storage.local.get(['dailyReportConfig', 'aiConfig']);
+  const reportCfg = stored.dailyReportConfig || {};
+  const aiCfg = stored.aiConfig || {};
+
+  // Keep compatibility with older installs where these values may have been
+  // saved in aiConfig instead of dailyReportConfig.
+  const backendUrl = String(
+    reportCfg.backendUrl || aiCfg.backendUrl || ''
+  ).trim();
+
+  const extensionApiKey = normalizeSecret(
+    reportCfg.extensionApiKey || aiCfg.extensionApiKey || ''
+  );
+
+  return {
+    backendUrl,
+    extensionApiKey
+  };
+}
+
 function parseBinaryVerdict(raw, textForFallback = '') {
   const normalized = String(raw || '').trim().toUpperCase();
   if (!normalized) return 'NO';
@@ -408,7 +438,8 @@ function parseBinaryVerdict(raw, textForFallback = '') {
 async function analyzeViaBackend(text, backendUrl, extensionApiKey) {
   const url     = backendUrl.replace(/\/+$/, '') + '/analyze';
   const headers = { 'Content-Type': 'application/json' };
-  if (extensionApiKey) headers['x-extension-api-key'] = extensionApiKey;
+  const apiKey = normalizeSecret(extensionApiKey);
+  if (apiKey) headers['x-extension-api-key'] = apiKey;
 
   const response = await fetch(url, {
     method:  'POST',
@@ -487,9 +518,9 @@ async function analyzeWithAI(text) {
       case AI_PROVIDERS.GEMINI_API: {
         // API key lives exclusively on the backend server — read its URL from
         // dailyReportConfig (the same config used by the report pipeline).
-        const cfgStore  = await chrome.storage.local.get(['dailyReportConfig']);
-        const backendUrl = cfgStore.dailyReportConfig?.backendUrl   || 'http://localhost:5000';
-        const extApiKey  = cfgStore.dailyReportConfig?.extensionApiKey || '';
+        const backendCfg = await loadBackendAnalyzeConfig();
+        const backendUrl = backendCfg.backendUrl || 'http://localhost:5000';
+        const extApiKey  = backendCfg.extensionApiKey;
         try {
           return await analyzeViaBackend(text, backendUrl, extApiKey);
         } catch (backendError) {
@@ -519,13 +550,13 @@ async function analyzeWithAI(text) {
         // On-device Nano unavailable — try the backend server as a fallback if
         // it is already configured (i.e. dailyReportConfig.backendUrl is set).
         {
-          const cfgStore  = await chrome.storage.local.get(['dailyReportConfig']);
-          const backendUrl = cfgStore.dailyReportConfig?.backendUrl || '';
+          const backendCfg = await loadBackendAnalyzeConfig();
+          const backendUrl = backendCfg.backendUrl;
           if (backendUrl) {
             return await analyzeViaBackend(
               text,
               backendUrl,
-              cfgStore.dailyReportConfig?.extensionApiKey || ''
+              backendCfg.extensionApiKey
             );
           }
 
