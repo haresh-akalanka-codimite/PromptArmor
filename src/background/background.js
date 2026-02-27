@@ -436,23 +436,42 @@ function parseBinaryVerdict(raw, textForFallback = '') {
  * @returns {Promise<'YES'|'NO'>}
  */
 async function analyzeViaBackend(text, backendUrl, extensionApiKey) {
-  const url     = backendUrl.replace(/\/+$/, '') + '/analyze';
-  const headers = { 'Content-Type': 'application/json' };
+  const url = backendUrl.replace(/\/+$/, '') + '/analyze';
+  const body = JSON.stringify({ text: text.substring(0, 10000) });
   const apiKey = normalizeSecret(extensionApiKey);
-  if (apiKey) headers['x-extension-api-key'] = apiKey;
 
-  const response = await fetch(url, {
-    method:  'POST',
-    headers,
-    body:    JSON.stringify({ text: text.substring(0, 10000) })
-  });
+  async function doAnalyzeRequest(includeApiKey) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (includeApiKey && apiKey) headers['x-extension-api-key'] = apiKey;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body
+    });
+
+    const detail = await response.json().catch(() => ({}));
+    return { response, detail };
+  }
+
+  let { response, detail } = await doAnalyzeRequest(true);
+
+  const authError = String(detail?.error || '').toLowerCase();
+  if (
+    apiKey &&
+    response.status === 401 &&
+    authError.includes('x-extension-api-key')
+  ) {
+    // Some backends are configured with no extension key. If users have a stale
+    // key in settings, retry once without the header so analysis still works.
+    ({ response, detail } = await doAnalyzeRequest(false));
+  }
 
   if (!response.ok) {
-    const detail = await response.json().catch(() => ({}));
     throw new Error(`Backend /analyze ${response.status}: ${detail.error || 'unknown'}`);
   }
 
-  const data = await response.json();
+  const data = detail;
   // Server returns { verdict: 'YES'|'NO', reason: '...' }
   if (data.verdict === 'YES' || data.verdict === 'NO') return data.verdict;
 
