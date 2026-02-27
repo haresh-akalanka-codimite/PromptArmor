@@ -113,39 +113,106 @@
     overlay.innerHTML = `
       <style>
         #promptarmor-overlay {
-          position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-          background: rgba(0,0,0,0.85); z-index: 2147483647;
-          display: flex; align-items: center; justify-content: center;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(17, 24, 39, 0.18);
+          z-index: 2147483647;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          box-sizing: border-box;
+          padding: 16px;
         }
         #promptarmor-dialog {
-          background: #1f2937; border-radius: 12px; padding: 32px;
-          max-width: 500px; text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+          box-sizing: border-box;
+          position: relative;
+          width: min(450px, calc(100vw - 32px));
+          min-height: 346px;
+          background: #ffffff;
+          box-shadow: 0 9px 7px rgba(0, 0, 0, 0.1);
+          border-radius: 16px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 20px;
+          padding: 40px;
+          text-align: center;
         }
-        #promptarmor-dialog h2 { color: #ef4444; margin: 0 0 16px; font-size: 24px; }
-        #promptarmor-dialog p  { color: #d1d5db; margin: 0 0 24px; line-height: 1.6; }
-        #promptarmor-evidence {
-          background: #374151; border-radius: 8px; padding: 12px; margin-bottom: 24px;
-          font-family: monospace; font-size: 12px; color: #9ca3af;
-          max-height: 100px; overflow: auto; text-align: left;
+        #promptarmor-icon {
+          width: 60px;
+          height: 60px;
+          border-radius: 999px;
+          background: #fecaca;
+          border: 7px solid #fee2e2;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #a20000;
         }
-        #promptarmor-buttons { display: flex; gap: 12px; justify-content: center; }
+        #promptarmor-title {
+          width: 100%;
+          margin: 0;
+          color: #1f2937;
+          font-weight: 700;
+          font-size: 20px;
+          line-height: 1.2;
+          letter-spacing: 0.005em;
+        }
+        #promptarmor-message {
+          width: 100%;
+          margin: 0;
+          color: #6b7280;
+          font-weight: 400;
+          font-size: 16px;
+          line-height: 1.5;
+          letter-spacing: 0.005em;
+        }
+        #promptarmor-buttons {
+          width: 100%;
+          display: flex;
+          gap: 40px;
+          justify-content: center;
+        }
         #promptarmor-buttons button {
-          padding: 12px 24px; border-radius: 8px; border: none;
-          font-size: 14px; font-weight: 600; cursor: pointer; transition: transform 0.1s;
+          width: 142px;
+          height: 36px;
+          border-radius: 8px;
+          border: 1px solid #e5e7eb;
+          background: #ffffff;
+          color: #1f2937;
+          font-size: 14px;
+          line-height: 20px;
+          font-weight: 500;
+          letter-spacing: 0.005em;
+          cursor: pointer;
         }
-        #promptarmor-buttons button:hover { transform: scale(1.02); }
-        #promptarmor-dismiss   { background: #374151; color: #fff; }
-        #promptarmor-whitelist { background: #3b82f6; color: #fff; }
+        #promptarmor-evidence {
+          max-width: 100%;
+          color: #9ca3af;
+          font-size: 12px;
+          line-height: 1.4;
+          word-break: break-word;
+        }
       </style>
-      <div id="promptarmor-dialog">
-        <h2>⚠️ High Risk Detected</h2>
-        <p>This page contains content that may contain prompt injections and may attempt to manipulate AI behavior or steal your data.</p>
-        <div id="promptarmor-evidence">${evidence || 'Suspicious content detected'}</div>
-        <div id="promptarmor-buttons">
-          <button id="promptarmor-dismiss">Dismiss Warning</button>
-          <button id="promptarmor-whitelist">Trust This Site</button>
+      <div id="promptarmor-dialog" role="alertdialog" aria-labelledby="promptarmor-title" aria-describedby="promptarmor-message">
+        <div id="promptarmor-icon" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 8V12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M12 16H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M10.29 3.85999L1.81999 18C1.64453 18.304 1.55157 18.6485 1.55029 18.9994C1.54901 19.3504 1.63946 19.6955 1.8127 20.0008C1.98594 20.306 2.23599 20.5608 2.538 20.7397C2.84001 20.9187 3.18358 21.0156 3.53499 21.02H20.465C20.8164 21.0156 21.16 20.9187 21.462 20.7397C21.764 20.5608 22.014 20.306 22.1873 20.0008C22.3605 19.6955 22.451 19.3504 22.4497 18.9994C22.4484 18.6485 22.3555 18.304 22.18 18L13.71 3.85999C13.5301 3.5642 13.277 3.31992 12.9751 3.15027C12.6732 2.98061 12.3327 2.89136 11.9864 2.89136C11.6402 2.89136 11.2997 2.98061 10.9978 3.15027C10.6959 3.31992 10.4428 3.5642 10.2629 3.85999H10.29Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </div>
+        <h2 id="promptarmor-title">High Risk Detected</h2>
+        <p id="promptarmor-message">This page may attempt to manipulate AI behavior or access sensitive data. This has been reported to your administrator. Click Proceed to continue or Abort to leave.</p>
+        <div id="promptarmor-buttons">
+          <button id="promptarmor-whitelist">Proceed</button>
+          <button id="promptarmor-dismiss">Abort</button>
+        </div>
+        <div id="promptarmor-evidence">${evidence || 'Suspicious content detected'}</div>
       </div>`;
     document.documentElement.appendChild(overlay);
 
