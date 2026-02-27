@@ -142,9 +142,29 @@
         </div>
       </div>`;
     document.documentElement.appendChild(overlay);
-    document.getElementById('promptarmor-dismiss').addEventListener('click', removeOverlay);
+
+    document.getElementById('promptarmor-dismiss').addEventListener('click', () => {
+      // Record that user chose to dismiss (not trust) this injection alert
+      safeSendMessage({
+        type:    'PROMPTARMOR_USER_ACTION',
+        action:  'dismiss',
+        context: 'injection',
+        url:     window.location.href,
+        origin:  window.location.origin
+      });
+      removeOverlay();
+    });
+
     document.getElementById('promptarmor-whitelist').addEventListener('click', () => {
       safeSendMessage({ type: 'PROMPTARMOR_WHITELIST', origin: window.location.origin });
+      // Record that user chose to trust this site despite the injection alert
+      safeSendMessage({
+        type:    'PROMPTARMOR_USER_ACTION',
+        action:  'trust',
+        context: 'injection',
+        url:     window.location.href,
+        origin:  window.location.origin
+      });
       removeOverlay();
     });
   }

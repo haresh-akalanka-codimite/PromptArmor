@@ -15,8 +15,9 @@
     "alarms"
   ],
   "host_permissions": [
-  "http://localhost:11434/*"
-],
+    "http://localhost:11434/*",
+    "https://firestore.googleapis.com/*"
+  ],
   "background": {
     "service_worker": "src/background/background.js"
   },
