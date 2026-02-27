@@ -20,6 +20,50 @@ const trustData = new Map();
 const DAILY_REPORT_ALARM = 'promptarmor_daily_report';
 const DAILY_REPORT_PERIOD_MINUTES = 24 * 60;
 
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+async function sha256Hex(value) {
+  const bytes = new TextEncoder().encode(String(value || ''));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function recordIncognitoStatusEvent() {
+  try {
+    const userInfo = await chrome.identity.getProfileUserInfo({
+      accountStatus: 'ANY'
+    });
+
+    const hasIncognitoAccess = await chrome.extension.isAllowedIncognitoAccess();
+    const userEmail = userInfo?.email || 'not_signed_in';
+
+    const profileHash = await sha256Hex(chrome.runtime.id);
+    const userHash = await sha256Hex(userEmail);
+
+    const evt = {
+      event_id: crypto.randomUUID(),
+      timestamp: nowIso(),
+      event_type: 'extension_incognito_status',
+      profile_id: profileHash,
+      user_hash: userHash,
+      user_email: userEmail,
+      has_incognito_access: hasIncognitoAccess
+    };
+
+    await recordSecurityEvent({
+      type: evt.event_type,
+      ...evt
+    });
+  } catch (err) {
+    console.error('PromptArmor incognito status event error:', err);
+  }
+}
+
 function toBase64(bytes) {
   const arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
   let binary = '';
@@ -47,7 +91,6 @@ async function loadDailyReportConfig() {
     firestoreApiKey: cfg.firestoreApiKey || '',
     firestoreCollection: cfg.firestoreCollection || 'promptarmorDailyReports',
     publicKeyPem: cfg.publicKeyPem || '',
-    tenantId: cfg.tenantId || '',
     includeAllStorage: cfg.includeAllStorage !== false
   };
 }
@@ -124,7 +167,6 @@ async function encryptDailyReportPayload(payload, publicKeyPem) {
 async function uploadDailyEncryptedReportToFirestore(encryptedPayload, reportFile, config) {
   const doc = {
     fields: {
-      tenantId: { stringValue: config.tenantId || '' },
       reportVersion: { integerValue: '1' },
       sentAt: { timestampValue: new Date().toISOString() },
       extensionId: { stringValue: chrome.runtime.id || '' },
@@ -812,6 +854,7 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.set({
     settings: { enabled: true, autoBlock: true, showNotifications: true }
   });
+  recordIncognitoStatusEvent().catch(() => {});
 });
 
 ensureDailyReportAlarm().catch(() => {});
@@ -828,6 +871,7 @@ chrome.runtime.onStartup?.addListener(() => {
   ensureDailyReportAlarm().catch(err =>
     console.error('PromptArmor daily report alarm setup error:', err)
   );
+  recordIncognitoStatusEvent().catch(() => {});
 });
 
 console.log('PromptArmor background service worker started');
