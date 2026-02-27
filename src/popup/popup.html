@@ -592,14 +592,16 @@
             <option value="gemma-ollama">Gemma via Ollama — local</option>
           </select>
 
-          <!-- Backend server info (shown only for gemini-api) -->
+          <!-- Direct Gemini API key (shown only for gemini-api) -->
           <div id="geminiApiSection" style="display:none; margin-bottom:10px">
+            <input class="field-input" id="geminiApiKey" type="password"
+              placeholder="Gemini API key (AIza...)" autocomplete="off"
+              style="margin-bottom:8px"/>
             <p class="hint-text" style="padding:9px 11px; background:#F3E8FF;
                border-radius:8px; color:#6B21A8; border:1px solid #DDD6FE; line-height:1.5">
-              🔒 <strong>API key stays on the server.</strong><br>
-              Calls are proxied through the Backend Server URL set in the
-              <em>Security Report → Firestore Config</em> section below.
-              Make sure the server is running and the URL is saved.
+              🔑 <strong>Direct Gemini mode.</strong><br>
+              PromptArmor sends analysis requests directly to Google Gemini
+              using the key saved above.
             </p>
           </div>
 

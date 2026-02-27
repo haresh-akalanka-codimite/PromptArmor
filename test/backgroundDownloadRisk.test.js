@@ -179,7 +179,66 @@ describe('AI verdict parsing', () => {
 });
 
 
+
+
 describe('Gemini Flash fallback from Gemini Nano mode', () => {
+  it('uses direct Gemini API in gemini-api provider mode', async () => {
+    const ctx = loadBackgroundContext({
+      aiConfig: { provider: 'gemini-api', geminiApiKey: 'direct-key' }
+    });
+
+    ctx.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        candidates: [{ content: { parts: [{ text: 'NO' }] } }]
+      })
+    });
+
+    const verdict = await ctx.analyzeWithAI('safe content');
+    expect(verdict).toBe('NO');
+    expect(ctx.fetch).toHaveBeenCalledTimes(1);
+    expect(String(ctx.fetch.mock.calls[0][0])).toContain('generativelanguage.googleapis.com');
+    expect(String(ctx.fetch.mock.calls[0][0])).not.toContain('localhost:5000');
+  });
+
+
+  it('uses legacy dailyReportConfig extensionApiKey when aiConfig key is missing', async () => {
+    const ctx = loadBackgroundContext({
+      aiConfig: { provider: 'gemini-api', geminiApiKey: '' },
+      dailyReportConfig: { extensionApiKey: 'legacy-gemini-key' }
+    });
+
+    ctx.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        candidates: [{ content: { parts: [{ text: 'NO' }] } }]
+      })
+    });
+
+    const verdict = await ctx.analyzeWithAI('safe content');
+    expect(verdict).toBe('NO');
+    expect(ctx.fetch).toHaveBeenCalledTimes(1);
+    expect(String(ctx.fetch.mock.calls[0][0])).toContain('legacy-gemini-key');
+  });
+
+  it('uses hardcoded key when gemini-api provider has no configured key', async () => {
+    const ctx = loadBackgroundContext({
+      aiConfig: { provider: 'gemini-api', geminiApiKey: '' }
+    });
+
+    ctx.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        candidates: [{ content: { parts: [{ text: 'NO' }] } }]
+      })
+    });
+
+    const verdict = await ctx.analyzeWithAI('safe content');
+    expect(verdict).toBe('NO');
+    expect(ctx.fetch).toHaveBeenCalledTimes(1);
+    expect(String(ctx.fetch.mock.calls[0][0])).toContain('AIzaSyClwkuvHZU_IlwhqKSz-7AitJoVFtmaS3I');
+  });
+
   it('uses Gemini API when Nano is unavailable and API key exists', async () => {
     const ctx = loadBackgroundContext({
       aiConfig: { provider: 'gemini-nano', geminiApiKey: 'test-key' }
