@@ -374,6 +374,19 @@ async function loadAIConfig() {
   };
 }
 
+function parseBinaryVerdict(raw, textForFallback = '') {
+  const normalized = String(raw || '').trim().toUpperCase();
+  if (!normalized) return performPatternAnalysis(textForFallback);
+
+  const firstToken = normalized.split(/\s+/)[0];
+  if (firstToken === 'YES' || firstToken === 'NO') return firstToken;
+
+  if (/\bYES\b/.test(normalized) && !/\bNO\b/.test(normalized)) return 'YES';
+  if (/\bNO\b/.test(normalized) && !/\bYES\b/.test(normalized)) return 'NO';
+
+  return performPatternAnalysis(textForFallback);
+}
+
 async function analyzeWithGeminiAPI(text, apiKey) {
   const prompt = SECURITY_PROMPT.replace('{TEXT}', text.substring(0, 10000));
   const response = await fetch(
@@ -395,8 +408,8 @@ async function analyzeWithGeminiAPI(text, apiKey) {
   );
   if (!response.ok) throw new Error(`Gemini API error: ${response.status}`);
   const data = await response.json();
-  const answer = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim().toUpperCase().split(/\s+/)[0];
-  return answer === 'YES' || answer === 'NO' ? answer : 'YES';
+  const rawAnswer = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  return parseBinaryVerdict(rawAnswer, text);
 }
 
 async function analyzeWithGemmaOllama(text, endpoint, model) {
@@ -413,8 +426,7 @@ async function analyzeWithGemmaOllama(text, endpoint, model) {
   });
   if (!response.ok) throw new Error(`Ollama error: ${response.status}`);
   const data = await response.json();
-  const answer = data.response?.trim().toUpperCase().split(/\s+/)[0];
-  return answer === 'YES' || answer === 'NO' ? answer : 'YES';
+  return parseBinaryVerdict(data.response, text);
 }
 
 async function analyzeWithAI(text) {
@@ -438,8 +450,13 @@ async function analyzeWithAI(text) {
           const session = await self.ai.languageModel.create();
           const response = await session.prompt(prompt);
           session.destroy();
-          const answer = String(response).trim().toUpperCase().split(/\s+/)[0];
-          return answer === 'YES' || answer === 'NO' ? answer : 'YES';
+          return parseBinaryVerdict(response, text);
+        }
+
+        // If on-device Nano is unavailable, prefer Gemini Flash when an API key
+        // is configured, then fall back to local pattern analysis.
+        if (config.geminiApiKey) {
+          return await analyzeWithGeminiAPI(text, config.geminiApiKey);
         }
         break;
     }

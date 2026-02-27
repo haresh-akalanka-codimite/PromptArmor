@@ -104,6 +104,8 @@
     });
   }
 
+
+
   function createBlockingOverlay(evidence) {
     if (document.getElementById('promptarmor-overlay')) return;
     const overlay = document.createElement('div');
@@ -138,7 +140,7 @@
       </style>
       <div id="promptarmor-dialog">
         <h2>⚠️ High Risk Detected</h2>
-        <p>This page contains content that may contains prompt injections and may attempt to manipulate AI behavior or steal your data.</p>
+        <p>This page contains content that may contain prompt injections and may attempt to manipulate AI behavior or steal your data.</p>
         <div id="promptarmor-evidence">${evidence || 'Suspicious content detected'}</div>
         <div id="promptarmor-buttons">
           <button id="promptarmor-dismiss">Dismiss Warning</button>
