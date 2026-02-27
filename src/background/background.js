@@ -375,7 +375,7 @@ async function loadAIConfig() {
 
 function parseBinaryVerdict(raw, textForFallback = '') {
   const normalized = String(raw || '').trim().toUpperCase();
-  if (!normalized) return performPatternAnalysis(textForFallback);
+  if (!normalized) return 'NO';
 
   const firstToken = normalized.split(/\s+/)[0];
   if (firstToken === 'YES' || firstToken === 'NO') return firstToken;
@@ -383,7 +383,7 @@ function parseBinaryVerdict(raw, textForFallback = '') {
   if (/\bYES\b/.test(normalized) && !/\bNO\b/.test(normalized)) return 'YES';
   if (/\bNO\b/.test(normalized) && !/\bYES\b/.test(normalized)) return 'NO';
 
-  return performPatternAnalysis(textForFallback);
+  return 'NO';
 }
 
 /**
@@ -529,21 +529,8 @@ async function analyzeWithAI(text) {
     console.error('PromptArmor AI error:', error);
   }
 
-  return performPatternAnalysis(text);
-}
-
-function performPatternAnalysis(text) {
-  const lowerText = text.toLowerCase();
-  const dangerPatterns = [
-    'ignore previous', 'ignore all previous', 'disregard previous',
-    'forget previous', 'override instructions', 'system prompt',
-    'leak the user', 'leak user email', 'send user data', 'exfiltrate',
-    'ignore safety', 'bypass security', 'act as if', 'pretend you are',
-    'you are now', 'new instructions', 'hidden instructions', 'secret instructions'
-  ];
-  for (const pattern of dangerPatterns) {
-    if (lowerText.includes(pattern)) return 'YES';
-  }
+  // AI-only mode: if every AI provider path fails, do not run regex/keyword
+  // heuristics as a fallback. Treat as safe and rely on explicit AI verdicts.
   return 'NO';
 }
 
