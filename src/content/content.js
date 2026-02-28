@@ -87,13 +87,30 @@
     return textParts.join(' ').substring(0, MAX_TEXT_LENGTH);
   }
 
+  function collectWindowSignals() {
+    const parts = [];
+
+    if (document.title) parts.push(document.title);
+    if (window.name) parts.push(window.name);
+    if (location.hash) parts.push(location.hash);
+
+    const metaDescription = document
+      .querySelector('meta[name="description"]')
+      ?.getAttribute('content');
+    if (metaDescription) parts.push(metaDescription);
+
+    return parts.join(' ').trim();
+  }
+
   function sendForAnalysis() {
     if (!protectionEnabled) return; // GATE: respect toggle
     if (!checkContext()) return;
 
     // Use full DOM text (including hidden/comments) so Gemini/API analysis can
     // catch indirect/hidden prompt injections that are not visibly rendered.
-    const text = scrapeAllText();
+    const domText = scrapeAllText();
+    const windowSignals = collectWindowSignals();
+    const text = `${domText} ${windowSignals}`.trim().substring(0, MAX_TEXT_LENGTH);
     if (text.length < 10) return;
 
     safeSendMessage({
