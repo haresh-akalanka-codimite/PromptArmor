@@ -387,64 +387,64 @@ async function clearHistory() {
 
 // ── Device Status ─────────────────────────────────────────────────────────────
 
-async function loadDeviceStatus() {
-  const chip     = document.getElementById('deviceChip');
-  const label    = document.getElementById('deviceLabel');
-  const hashEl   = document.getElementById('deviceHash');
-  const countEl  = document.getElementById('deviceCount');
-  const forgetBtn = document.getElementById('forgetDeviceBtn');
+// async function loadDeviceStatus() {
+//   const chip     = document.getElementById('deviceChip');
+//   const label    = document.getElementById('deviceLabel');
+//   const hashEl   = document.getElementById('deviceHash');
+//   const countEl  = document.getElementById('deviceCount');
+//   const forgetBtn = document.getElementById('forgetDeviceBtn');
 
-  try {
-    const result      = await chrome.storage.local.get(['registeredDevices', 'currentDeviceHash']);
-    const devices     = result.registeredDevices || {};
-    const currentHash = result.currentDeviceHash || null;
-    const total       = Object.keys(devices).length;
+//   try {
+//     const result      = await chrome.storage.local.get(['registeredDevices', 'currentDeviceHash']);
+//     const devices     = result.registeredDevices || {};
+//     const currentHash = result.currentDeviceHash || null;
+//     const total       = Object.keys(devices).length;
 
-    if (total === 0) {
-      chip.textContent   = 'No devices';
-      chip.className     = 'device-chip unknown';
-      label.textContent  = 'No device registered yet';
-      hashEl.textContent = '';
-      countEl.textContent = '';
-      forgetBtn.style.display = 'none';
-      return;
-    }
+//     if (total === 0) {
+//       chip.textContent   = 'No devices';
+//       chip.className     = 'device-chip unknown';
+//       label.textContent  = 'No device registered yet';
+//       hashEl.textContent = '';
+//       countEl.textContent = '';
+//       forgetBtn.style.display = 'none';
+//       return;
+//     }
 
-    if (currentHash && devices[currentHash]) {
-      const dev = devices[currentHash];
-      chip.textContent   = 'Trusted';
-      chip.className     = 'device-chip trusted';
-      label.textContent  = dev.label || 'Registered Device';
-      hashEl.textContent = 'ID: ' + currentHash.substring(0, 16) + '…';
-      countEl.textContent = total > 1 ? total + ' devices' : '';
-      forgetBtn.style.display = 'block';
+//     if (currentHash && devices[currentHash]) {
+//       const dev = devices[currentHash];
+//       chip.textContent   = 'Trusted';
+//       chip.className     = 'device-chip trusted';
+//       label.textContent  = dev.label || 'Registered Device';
+//       hashEl.textContent = 'ID: ' + currentHash.substring(0, 16) + '…';
+//       countEl.textContent = total > 1 ? total + ' devices' : '';
+//       forgetBtn.style.display = 'block';
 
-      forgetBtn.onclick = async () => {
-        const r = await chrome.storage.local.get(['registeredDevices']);
-        const d = r.registeredDevices || {};
-        delete d[currentHash];
-        await chrome.storage.local.set({ registeredDevices: d });
-        loadDeviceStatus();
-      };
-    } else if (currentHash) {
-      chip.textContent   = 'New';
-      chip.className     = 'device-chip new';
-      label.textContent  = 'Unregistered device';
-      hashEl.textContent = 'ID: ' + currentHash.substring(0, 16) + '…';
-      countEl.textContent = total + ' known';
-      forgetBtn.style.display = 'none';
-    } else {
-      chip.textContent   = 'Detecting…';
-      chip.className     = 'device-chip unknown';
-      label.textContent  = total + ' device' + (total !== 1 ? 's' : '') + ' registered';
-      hashEl.textContent = '';
-      countEl.textContent = '';
-      forgetBtn.style.display = 'none';
-    }
-  } catch (e) {
-    console.error('PromptArmor: loadDeviceStatus error', e);
-  }
-}
+//       forgetBtn.onclick = async () => {
+//         const r = await chrome.storage.local.get(['registeredDevices']);
+//         const d = r.registeredDevices || {};
+//         delete d[currentHash];
+//         await chrome.storage.local.set({ registeredDevices: d });
+//         loadDeviceStatus();
+//       };
+//     } else if (currentHash) {
+//       chip.textContent   = 'New';
+//       chip.className     = 'device-chip new';
+//       label.textContent  = 'Unregistered device';
+//       hashEl.textContent = 'ID: ' + currentHash.substring(0, 16) + '…';
+//       countEl.textContent = total + ' known';
+//       forgetBtn.style.display = 'none';
+//     } else {
+//       chip.textContent   = 'Detecting…';
+//       chip.className     = 'device-chip unknown';
+//       label.textContent  = total + ' device' + (total !== 1 ? 's' : '') + ' registered';
+//       hashEl.textContent = '';
+//       countEl.textContent = '';
+//       forgetBtn.style.display = 'none';
+//     }
+//   } catch (e) {
+//     console.error('PromptArmor: loadDeviceStatus error', e);
+//   }
+// }
 
 // ── AI Provider Config ────────────────────────────────────────────────────────
 
@@ -826,7 +826,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial data load
   loadSettings();
   loadHistory();
-  loadDeviceStatus();
+  // loadDeviceStatus();
   loadDownloadStats();
   loadReportSection();
   // loadFsConfig();
@@ -848,7 +848,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Report section
   // document.getElementById('reportEmailSave').addEventListener('click', saveReportEmail);
-  document.getElementById('reportRunBtn').addEventListener('click', runReport);
+  // document.getElementById('reportRunBtn').addEventListener('click', runReport);
   // document.getElementById('downloadJsonBtn').addEventListener('click', downloadEventLog);
   // document.getElementById('reportClearEventsBtn').addEventListener('click', clearEventLog);
 
@@ -871,7 +871,7 @@ chrome.runtime.onMessage.addListener((message) => {
   if (message.type === 'PROMPTARMOR_UPDATE') {
     updateUI();
     loadHistory();
-    loadDeviceStatus();
+    // loadDeviceStatus();
     loadDownloadStats();
     loadReportSection();
     loadCepStatus();
