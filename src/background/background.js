@@ -6,7 +6,6 @@ const AI_PROVIDERS = {
   GEMMA_OLLAMA: 'gemma-ollama'
 };
 
-const HARDCODED_GEMINI_API_KEY = 'AIzaSyD7onYrrfZSWGrV6NPT7wp3P5LKNz4z9M0';
 const GEMINI_MODEL_CANDIDATES = [
   'gemini-1.5-flash',
   'gemini-1.5-flash-latest',
@@ -20,6 +19,136 @@ Answer ONLY with YES (if suspicious) or NO (if safe).
 ---TEXT---
 {TEXT}
 ---END---`;
+
+
+
+const THREAT_CLASSES = {
+  HIDDEN_INSTRUCTION: 'hidden_instruction',
+  DOM_MANIPULATION: 'dom_manipulation',
+  AI_REDIRECTION: 'ai_redirection',
+  OBFUSCATED_SCRIPT: 'obfuscated_script',
+  CONTEXT_POISONING: 'context_poisoning',
+  DATA_EXFIL_ATTEMPT: 'data_exfil_attempt'
+};
+
+const SHIELD_PATTERNS = {
+  [THREAT_CLASSES.HIDDEN_INSTRUCTION]: [
+    { re: /ignore\s+(?:all\s+)?previous\s+instructions?/i, label: 'Instruction override' },
+    { re: /disregard\s+(?:all\s+)?(?:prior|previous)\s+/i, label: 'Instruction discard' },
+    { re: /system\s*:\s*you\s+are\s+now/i, label: 'System role injection' },
+    { re: /\[SYSTEM\]|\[INST\]|\[SYS\]/, label: 'System bracket injection' },
+    { re: /<!--[\s\S]*?(?:ignore|forget|override)[\s\S]*?-->/i, label: 'HTML comment injection' },
+    { re: /\{%[-\s]*(?:system|ignore|override)/i, label: 'Template injection attempt' },
+    { re: /if\s+an?\s+ai\s+(?:assistant\s+)?had\s+hidden\s+(?:safety\s+)?instructions?/i, label: 'Hypothetical instruction extraction' },
+    { re: /provide\s+a\s+realistic\s+example\s+of\s+(?:such|an?\s+ai|system)\s+(?:configuration|instructions?)/i, label: 'Realistic example extraction' }
+  ],
+  [THREAT_CLASSES.AI_REDIRECTION]: [
+    { re: /(?:send|forward|email|transmit)\s+(?:all\s+)?(?:this|conversation|data|history)/i, label: 'Data forwarding command' },
+    { re: /exfiltrate|exfil\b/i, label: 'Exfiltration keyword' },
+    { re: /when\s+(?:asked|prompted|requested).*?respond\s+with/i, label: 'Conditional response override' },
+    { re: /do\s+not\s+(?:tell|inform|reveal)\s+the\s+user/i, label: 'Transparency suppression' },
+    { re: /act\s+as\s+(?:if\s+)?(?:you\s+are|a)\s+(?:different|new|another)/i, label: 'Identity redirection' }
+  ],
+  [THREAT_CLASSES.OBFUSCATED_SCRIPT]: [
+    { re: /\\u00[0-9a-f]{2}\\u00[0-9a-f]{2}/i, label: 'Unicode escape obfuscation' },
+    { re: /(?:eval|Function)\s*\(\s*(?:atob|unescape|decodeURI)/i, label: 'Eval with decode' },
+    { re: /String\.fromCharCode\(\s*\d+(?:\s*,\s*\d+){10,}\)/, label: 'CharCode obfuscation' },
+    { re: /base64[^'"\s]{20,}/i, label: 'Inline base64 payload' },
+    { re: /\\x[0-9a-f]{2}(?:\\x[0-9a-f]{2}){5,}/i, label: 'Hex escape sequence' }
+  ],
+  [THREAT_CLASSES.CONTEXT_POISONING]: [
+    { re: /the\s+following\s+is\s+(?:your\s+)?(?:new\s+)?(?:true\s+)?(?:system\s+)?instructions?/i, label: 'False system instructions' },
+    { re: /you\s+(?:must|should|will)\s+(?:always|never)\s+(?:follow|obey|comply)/i, label: 'Compliance coercion' },
+    { re: /your\s+(?:true\s+)?(?:purpose|goal|mission)\s+is\s+(?:to\s+)?(?:help|assist)\s+(?:me|us)\s+(?:steal|leak|exfil)/i, label: 'Goal poisoning' },
+    { re: /continue\s+acting\s+as\s+(?:this|that|the)\s+(?:new\s+)?(?:character|persona|entity)/i, label: 'Persistent persona injection' },
+    { re: /the\s+following\s+instruction\s+comes?\s+from\s+the\s+(?:system\s+)?(?:administrator|admin|operator)/i, label: 'Authority impersonation' },
+    { re: /(?:system\s+)?(?:administrator|admin|operator)\s*:\s*(?:reveal|show|provide|share|output)/i, label: 'Admin command spoofing' },
+    { re: /for\s+(?:audit|compliance|security)\s+purposes?\s*,?\s*(?:reveal|show|provide|share|output)/i, label: 'Audit pretext extraction' },
+    { re: /reinterpret\s+(?:your|the)\s+(?:safety|security|content)\s+(?:policies?|guidelines?|rules?)/i, label: 'Safety policy reframing' },
+    { re: /transparency\s+(?:requires?|means?|demands?)\s+(?:sharing|revealing|disclosing)\s+internal/i, label: 'Transparency pretext injection' },
+    { re: /(?:safety|security)\s+(?:policies?|guidelines?)\s+as\s+transparency\s+(?:policies?|guidelines?)/i, label: 'Policy equivalence manipulation' }
+  ],
+  [THREAT_CLASSES.DATA_EXFIL_ATTEMPT]: [
+    { re: /https?:\/\/[^\s"'<>]*?(?:webhook|exfil|collect|track|log)\.[^\s"'<>]{3,}/i, label: 'Exfil webhook URL' },
+    { re: /fetch\s*\(\s*['"][^'"]*(?:attacker|evil|malicious)[^'"]*['"]/i, label: 'Malicious fetch call' },
+    { re: /new\s+Image\s*\(\s*\)[\s\S]{0,50}\.src\s*=/i, label: 'Image beacon exfil' },
+    { re: /navigator\.sendBeacon\s*\(/i, label: 'sendBeacon exfiltration' }
+  ]
+};
+
+function classifyRisk(threatClass, matchCount) {
+  const classRisk = {
+    [THREAT_CLASSES.HIDDEN_INSTRUCTION]: 3,
+    [THREAT_CLASSES.AI_REDIRECTION]: 3,
+    [THREAT_CLASSES.OBFUSCATED_SCRIPT]: 2,
+    [THREAT_CLASSES.CONTEXT_POISONING]: 3,
+    [THREAT_CLASSES.DATA_EXFIL_ATTEMPT]: 3,
+    [THREAT_CLASSES.DOM_MANIPULATION]: 2
+  };
+  const baseRisk = (classRisk[threatClass] || 1) * matchCount;
+  if (baseRisk >= 6) return 'critical';
+  if (baseRisk >= 3) return 'high';
+  if (baseRisk >= 1) return 'medium';
+  return 'low';
+}
+
+function shieldScan(text) {
+  if (!text || typeof text !== 'string') {
+    return { clean: true, threats: [], score: 0, maliciousProbability: 0 };
+  }
+
+  const threats = [];
+
+  for (const [threatClass, patterns] of Object.entries(SHIELD_PATTERNS)) {
+    for (const { re, label } of patterns) {
+      const matches = text.match(re);
+      if (matches) {
+        threats.push({
+          class: threatClass,
+          label,
+          sample: matches[0].substring(0, 120),
+          severity: classifyRisk(threatClass, 1)
+        });
+      }
+    }
+  }
+
+  if (/[​‌‍﻿]/.test(text)) {
+    threats.push({
+      class: THREAT_CLASSES.HIDDEN_INSTRUCTION,
+      label: 'Zero-width character steganography',
+      sample: '[zero-width characters detected]',
+      severity: 'high'
+    });
+  }
+
+  const score = Math.min(100, threats.reduce((sum, t) => {
+    return sum + ({ critical: 40, high: 20, medium: 10, low: 5 }[t.severity] || 0);
+  }, 0));
+
+  return {
+    clean: threats.length === 0,
+    threats,
+    score,
+    maliciousProbability: score / 100,
+    threatClasses: [...new Set(threats.map(t => t.class))]
+  };
+}
+
+function assessExposure(scanResult) {
+  const { threats, score } = scanResult;
+
+  const dataExfilThreats = threats.filter(t => t.class === THREAT_CLASSES.DATA_EXFIL_ATTEMPT);
+  const redirectionThreats = threats.filter(t => t.class === THREAT_CLASSES.AI_REDIRECTION);
+
+  return {
+    maliciousIntentProbability: score / 100,
+    dataExposureRisk: dataExfilThreats.length > 0 ? 'high' : score > 30 ? 'medium' : 'low',
+    executionRisk: score >= 60 ? 'high' : score >= 20 ? 'medium' : 'low',
+    aiRedirectionRisk: redirectionThreats.length > 0 ? 'high' : 'low',
+    recommendedAction: score >= 60 ? 'block' : score >= 20 ? 'sanitize' : 'allow'
+  };
+}
 
 const trustData = new Map();
 
@@ -402,7 +531,7 @@ async function loadAIConfig() {
     provider: aiCfg.provider || AI_PROVIDERS.GEMINI_NANO,
     ollamaEndpoint: aiCfg.ollamaEndpoint || 'http://localhost:11434',
     gemmaModel: aiCfg.gemmaModel || 'gemma2:2b',
-    geminiApiKey: directGeminiKey || legacyGeminiKey || HARDCODED_GEMINI_API_KEY
+    geminiApiKey: directGeminiKey || legacyGeminiKey
   };
 }
 
@@ -475,6 +604,10 @@ async function analyzeWithGeminiApiDirect(text, apiKey) {
       response.status === 404 &&
       (detailLower.includes('not found') || detailLower.includes('not supported for generatecontent'));
 
+    if (response.status === 429) {
+      throw new Error('Gemini API quota exceeded (HTTP 429). Add a valid API key with available quota in PromptArmor settings and check Google AI billing/limits.');
+    }
+
     if (!modelMissing) {
       throw new Error(`Gemini API error ${response.status}: ${detail.slice(0, 200)}`);
     }
@@ -486,40 +619,18 @@ async function analyzeWithGeminiApiDirect(text, apiKey) {
 }
 
 async function analyzeWithAI(text) {
-  const config = await loadAIConfig();
-  const prompt = SECURITY_PROMPT.replace('{TEXT}', text.substring(0, 5000));
+  const scan = shieldScan(text);
+  const exposure = assessExposure(scan);
 
-  try {
-    switch (config.provider) {
-      case AI_PROVIDERS.GEMINI_API:
-        return await analyzeWithGeminiApiDirect(text, config.geminiApiKey);
-      case AI_PROVIDERS.GEMMA_OLLAMA:
-        return await analyzeWithGemmaOllama(
-          text,
-          config.ollamaEndpoint || 'http://localhost:11434',
-          config.gemmaModel || 'gemma2:2b'
-        );
-      case AI_PROVIDERS.GEMINI_NANO:
-      default:
-        if (typeof self !== 'undefined' && self.ai?.languageModel) {
-          const session = await self.ai.languageModel.create();
-          const response = await session.prompt(prompt);
-          session.destroy();
-          return parseBinaryVerdict(response, text);
-        }
-
-        if (config.geminiApiKey) {
-          return await analyzeWithGeminiApiDirect(text, config.geminiApiKey);
-        }
-        break;
-    }
-  } catch (error) {
-    console.error('PromptArmor AI error:', error);
+  if (!scan.clean) {
+    console.log('PromptArmor shield detection:', {
+      score: scan.score,
+      threats: scan.threatClasses,
+      recommendedAction: exposure.recommendedAction
+    });
   }
 
-  // AI-only mode: if every AI provider path fails, do not run regex/keyword
-  // heuristics as a fallback. Treat as safe and rely on explicit AI verdicts.
-  return 'NO';
+  return exposure.recommendedAction === 'allow' ? 'NO' : 'YES';
 }
 
 let firewallStats = { blocked: 0, sanitized: 0, threats: [] };
