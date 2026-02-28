@@ -603,23 +603,23 @@ async function generateRsaKeyPair() {
   }
 }
 
-async function loadFsConfig() {
-  try {
-    const result = await chrome.storage.local.get(['dailyReportConfig']);
-    const cfg    = result.dailyReportConfig || {};
+// async function loadFsConfig() {
+//   try {
+//     const result = await chrome.storage.local.get(['dailyReportConfig']);
+//     const cfg    = result.dailyReportConfig || {};
 
-    document.getElementById('fsBackendUrl').value = cfg.backendUrl      || 'http://localhost:5000';
-    document.getElementById('fsApiKey').value      = cfg.extensionApiKey || '';
-    document.getElementById('fsPubKeyPem').value   = cfg.publicKeyPem    || '';
+//     document.getElementById('fsBackendUrl').value = cfg.backendUrl      || 'http://localhost:5000';
+//     document.getElementById('fsApiKey').value      = cfg.extensionApiKey || '';
+//     document.getElementById('fsPubKeyPem').value   = cfg.publicKeyPem    || '';
 
-    const chip         = document.getElementById('fsChip');
-    const isConfigured = !!(cfg.backendUrl && cfg.publicKeyPem);
-    chip.textContent   = isConfigured ? 'Set ✓' : 'Not Set';
-    chip.className     = 'fs-chip ' + (isConfigured ? 'set' : 'unset');
-  } catch (e) {
-    console.error('PromptArmor: loadFsConfig error', e);
-  }
-}
+//     const chip         = document.getElementById('fsChip');
+//     const isConfigured = !!(cfg.backendUrl && cfg.publicKeyPem);
+//     chip.textContent   = isConfigured ? 'Set ✓' : 'Not Set';
+//     chip.className     = 'fs-chip ' + (isConfigured ? 'set' : 'unset');
+//   } catch (e) {
+//     console.error('PromptArmor: loadFsConfig error', e);
+//   }
+// }
 
 async function saveFsConfig() {
   const backendUrl      = document.getElementById('fsBackendUrl').value.trim() || 'http://localhost:5000';
@@ -656,7 +656,7 @@ async function saveFsConfig() {
     if (result?.ok) {
       status.textContent = '✓ Config saved';
       status.className   = 'fs-status ok';
-      loadFsConfig();
+      // loadFsConfig();
       setTimeout(() => { status.className = 'fs-status'; }, 3000);
     } else {
       status.textContent = '❌ ' + (result?.error || 'Save failed');
@@ -715,12 +715,12 @@ function setReportStatus(msg, type /* 'ok' | 'error' | 'busy' */) {
   el.className   = 'report-status ' + type;
 }
 
-async function saveReportEmail() {
-  const email = document.getElementById('reportEmailInput').value.trim();
-  await chrome.storage.local.set({ reportUserEmail: email });
-  setReportStatus(email ? '✓ Email saved' : '✓ Cleared', 'ok');
-  setTimeout(() => { document.getElementById('reportStatus').className = 'report-status'; }, 2000);
-}
+// async function saveReportEmail() {
+//   const email = document.getElementById('reportEmailInput').value.trim();
+//   await chrome.storage.local.set({ reportUserEmail: email });
+//   setReportStatus(email ? '✓ Email saved' : '✓ Cleared', 'ok');
+//   setTimeout(() => { document.getElementById('reportStatus').className = 'report-status'; }, 2000);
+// }
 
 async function runReport() {
   const btn    = document.getElementById('reportRunBtn');
@@ -829,7 +829,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadDeviceStatus();
   loadDownloadStats();
   loadReportSection();
-  loadFsConfig();
+  // loadFsConfig();
   loadCepStatus();
   loadAIProviderConfig();
 
@@ -847,10 +847,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('clearHistoryBtn').addEventListener('click', clearHistory);
 
   // Report section
-  document.getElementById('reportEmailSave').addEventListener('click', saveReportEmail);
+  // document.getElementById('reportEmailSave').addEventListener('click', saveReportEmail);
   document.getElementById('reportRunBtn').addEventListener('click', runReport);
-  document.getElementById('downloadJsonBtn').addEventListener('click', downloadEventLog);
-  document.getElementById('reportClearEventsBtn').addEventListener('click', clearEventLog);
+  // document.getElementById('downloadJsonBtn').addEventListener('click', downloadEventLog);
+  // document.getElementById('reportClearEventsBtn').addEventListener('click', clearEventLog);
 
   // AI provider config
   document.getElementById('aiProvider')?.addEventListener('change', e => updateAISections(e.target.value));
@@ -858,8 +858,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('aiTestBtn')?.addEventListener('click', testAIProviderConfig);
 
   // Firestore config panel
-  document.getElementById('fsGenKeyBtn').addEventListener('click', generateRsaKeyPair);
-  document.getElementById('fsSaveBtn').addEventListener('click', saveFsConfig);
+  // document.getElementById('fsGenKeyBtn').addEventListener('click', generateRsaKeyPair);
+  // document.getElementById('fsSaveBtn').addEventListener('click', saveFsConfig);
 
   // Extensions panel
   document.getElementById('rescanExtBtn').addEventListener('click', loadExtensionList);
