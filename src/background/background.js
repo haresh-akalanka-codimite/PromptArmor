@@ -783,6 +783,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false; // sync response
   }
 
+
+  if (message.type === 'PROMPTARMOR_CLOSE_TAB') {
+    const tabId = sender?.tab?.id;
+    if (typeof tabId === 'number') {
+      chrome.tabs.remove(tabId).catch(err =>
+        console.error('PromptArmor close-tab error:', err)
+      );
+    }
+    return false;
+  }
+
   if (message.type === 'PROMPTARMOR_ANALYZE') {
     analyzeWithAI(message.text)
       .then(verdict => sendResponse({ verdict }))

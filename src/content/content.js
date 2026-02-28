@@ -207,7 +207,7 @@
           </svg>
         </div>
         <h2 id="promptarmor-title">High Risk Detected</h2>
-        <p id="promptarmor-message">This page may attempt to manipulate AI behavior or access sensitive data. This has been reported to your administrator. Click Proceed to continue or Abort to leave.</p>
+        <p id="promptarmor-message">This page may attempt to manipulate AI behavior or access sensitive data. This has been reported to your administrator. Click Proceed to trust this site or Abort to close this tab.</p>
         <div id="promptarmor-buttons">
           <button id="promptarmor-whitelist">Proceed</button>
           <button id="promptarmor-dismiss">Abort</button>
@@ -217,7 +217,7 @@
     document.documentElement.appendChild(overlay);
 
     document.getElementById('promptarmor-dismiss').addEventListener('click', () => {
-      // Record that user chose to dismiss (not trust) this injection alert
+      // Record that user chose to abort and close this tab
       safeSendMessage({
         type:    'PROMPTARMOR_USER_ACTION',
         action:  'dismiss',
@@ -225,7 +225,11 @@
         url:     window.location.href,
         origin:  window.location.origin
       });
-      removeOverlay();
+      safeSendMessage({ type: 'PROMPTARMOR_CLOSE_TAB' });
+      // Fallback for contexts where background tab-close is unavailable
+      setTimeout(() => {
+        try { window.close(); } catch (e) {}
+      }, 50);
     });
 
     document.getElementById('promptarmor-whitelist').addEventListener('click', () => {

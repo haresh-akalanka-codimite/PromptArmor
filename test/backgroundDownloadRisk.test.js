@@ -52,7 +52,7 @@ function loadBackgroundContext(storageGetValue = {}) {
         sendMessage: jest.fn().mockResolvedValue(),
         getManifest: jest.fn(() => ({ version: '2.0.0', name: 'PromptArmor' }))
       },
-      tabs: { sendMessage: jest.fn().mockResolvedValue() },
+      tabs: { sendMessage: jest.fn().mockResolvedValue(), remove: jest.fn().mockResolvedValue() },
       sidePanel: { setPanelBehavior: jest.fn().mockResolvedValue() }
     }
   };
@@ -222,5 +222,27 @@ describe('analyzeWithAI shield mode', () => {
     expect(scan.clean).toBe(false);
     expect(scan.score).toBeGreaterThan(0);
     expect(exposure.recommendedAction).toMatch(/sanitize|block/);
+  });
+});
+
+
+describe('message handling for close-tab abort action', () => {
+  it('closes the sender tab when PROMPTARMOR_CLOSE_TAB is received', () => {
+    const ctx = loadBackgroundContext();
+    const listener = ctx.chrome.runtime.onMessage.addListener.mock.calls[0][0];
+
+    listener({ type: 'PROMPTARMOR_CLOSE_TAB' }, { tab: { id: 42 } }, jest.fn());
+
+    expect(ctx.chrome.tabs.remove).toHaveBeenCalledTimes(1);
+    expect(ctx.chrome.tabs.remove).toHaveBeenCalledWith(42);
+  });
+
+  it('does nothing when sender tab id is missing', () => {
+    const ctx = loadBackgroundContext();
+    const listener = ctx.chrome.runtime.onMessage.addListener.mock.calls[0][0];
+
+    listener({ type: 'PROMPTARMOR_CLOSE_TAB' }, {}, jest.fn());
+
+    expect(ctx.chrome.tabs.remove).not.toHaveBeenCalled();
   });
 });
