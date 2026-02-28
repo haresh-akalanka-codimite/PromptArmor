@@ -6,7 +6,7 @@ const AI_PROVIDERS = {
   GEMMA_OLLAMA: 'gemma-ollama'
 };
 
-const HARDCODED_GEMINI_API_KEY = 'AIzaSyClwkuvHZU_IlwhqKSz-7AitJoVFtmaS3I';
+const HARDCODED_GEMINI_API_KEY = 'AIzaSyD7onYrrfZSWGrV6NPT7wp3P5LKNz4z9M0';
 const GEMINI_MODEL_CANDIDATES = [
   'gemini-1.5-flash',
   'gemini-1.5-flash-latest',
